@@ -15,4 +15,6 @@ $conn->db ="php";
 $activeRecord = new ActiveRecord();
 $activeRecord->mongodb =$conn->connect();
 
-var_dump($activeRecord->find('Internacionales'));
+var_dump($activeRecord->insert('Data',array("title"=>'Qwerty','Evento'=> ['59ca6583cb0b662404000029'])));
+
+echo json_encode($activeRecord->find('Data'));
