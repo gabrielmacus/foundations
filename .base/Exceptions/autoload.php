@@ -6,3 +6,7 @@
  * Time: 20:53
  */
 include ("PropertyNotDefined.php");
+include ("DatabaseNotConnected.php");
+include ("TypeNotDefined.php");
+include ("CreateException.php");
+include ("UpdateException.php");
