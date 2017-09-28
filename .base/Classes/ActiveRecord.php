@@ -36,9 +36,7 @@ class ActiveRecord
         {
             $data = array_merge($data,$extraData); 
         }
-        
 
-        
         $collection=$this->mongodb->relations;
 
         $result=$collection->insert($data);
@@ -102,12 +100,49 @@ class ActiveRecord
 
         return $cursor->next()["_id"];
     }
-    function findBreadcrumb($type,&$breadcrumb=array(),$attr='name')
+    function findBreadcrumbReverse($type,&$breadcrumb=array(),$attr='name')
     {
         $this->checkConnection();
         $collection=$this->mongodb->types;
-
         $data[$attr]=$type;
+        $cursor=$collection->find($data);
+        if($item=$cursor->next())
+        {
+            $item["_id"]=strval($item["_id"]);
+            $breadcrumb[]=$item;
+            if($item['belongs'] != "0")
+            {
+                $this->findBreadcrumbReverse($item["belongs"],$breadcrumb,'_id');
+            }
+        }
+        return array_reverse($breadcrumb);
+
+    }
+    function findBreadcrumb($type,&$breadcrumb=array(),$attr='name')
+    {
+        $this->checkConnection();
+
+        $collection=$this->mongodb->types;
+
+        if($attr == 'name')
+        {
+            $cursor= $collection->find(['name'=>$type]);
+            $mainType = $cursor->next();
+            $type = $mainType["_id"];
+        }
+        elseif($attr == '_id')
+        {
+            $cursor= $collection->find(['_id'=>new MongoId($type)]);
+            $mainType = $cursor->next();
+            $type = $mainType["_id"];
+        }
+
+        if(count($breadcrumb)==0)
+        {
+            $breadcrumb[]=$mainType;
+        }
+
+        $data["belongs"]=new MongoId($type);
 
         $cursor=$collection->find($data);
 
@@ -115,15 +150,14 @@ class ActiveRecord
         {
             $item["_id"]=strval($item["_id"]);
 
-            //$item["_id"] = strval($item["_id"]);
             $breadcrumb[]=$item;
-            if($item['belongs'] != "0")
-            {
-                $this->findBreadcrumb($item["belongs"],$breadcrumb,'_id');
-            }
+
+            $this->findBreadcrumb($item["_id"],$breadcrumb,'_id');
+
         }
 
-        return array_reverse($breadcrumb);
+
+        return $breadcrumb;
 
     }
     function insertBreadcrumb($breadcrumb)
@@ -169,9 +203,20 @@ class ActiveRecord
             }
         }
 
-        $breadcrumb = $this->findBreadcrumb($type);
+        $attr = (MongoId::isValid($type))?'_id':'name';
 
-        $data["type"] = new MongoId(end($breadcrumb)["_id"]);
+        $breadcrumb = array();
+        
+        $this->findBreadcrumb($type,$breadcrumb,$attr);
+        
+
+        $inBreadcrumb = array_map(function($el)
+        {
+            return new MongoId($el['_id']);
+
+        },$breadcrumb);
+
+        $data["type"] = ['$in' => $inBreadcrumb ];//new MongoId(end($breadcrumb)["_id"]);
 
         $collection=$this->mongodb->items;
 
@@ -197,8 +242,6 @@ class ActiveRecord
 
             $relations = $this->findRelations($item["_id"]);
 
-
-            //TODO : this may be refactored in a function
             foreach ($relations as $k => $v)
             {
 
@@ -222,32 +265,6 @@ class ActiveRecord
 
             }
 
-
-            /*
-            //TODO : this may be refactored in a function
-            foreach ($item as $k => $v)
-            {
-
-                if(MongoId::isValid($v) && $k != "type" && $k!='_id')
-                {
-                    $result[$key][$k] = array();
-
-                    $this->find($k,array("_id"=>new MongoId($v)),$result[$key][$k]);
-                }
-                else if(is_array($v))
-                {
-                    foreach ($v as $clave => $valor)
-                    {
-                        if(MongoId::isValid($valor))
-                        {
-                            $result[$key][$k] = array();
-
-                            $this->find($k,array("_id"=>new MongoId($valor)),$result[$key][$k]);
-                        }
-
-                    }
-                }
-            }*/
         }
 
         return $result;
@@ -278,7 +295,7 @@ class ActiveRecord
 
         foreach ($data as $k=>$v)
         {
-            if(count($this->findBreadcrumb($k)) > 0)
+            if(count($this->findBreadcrumbReverse($k)) > 0)
             {
                 $item1 = array("_id"=>$data["_id"], "type"=>reset($breadcrumb));
                 if(is_array($v))

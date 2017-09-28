@@ -14,26 +14,18 @@ $conn->db ="php";
 //$conn->insert(['Noticia','Internacionales'],array("a"=>1));
 $activeRecord = new ActiveRecord();
 $activeRecord->mongodb =$conn->connect();
-
-//var_dump($activeRecord->insert('Autor',array("name"=>'Gabriel',"surname"=>"Macus","age"=>21)));
-
-//echo json_encode($activeRecord->find('Data'));
-
-//var_dump($activeRecord->delete('59cbb52d45693f6dade6916d'));
-
-//var_dump($activeRecord->insert('Evento',array('title'=>'North Korea strikes U.S.A')));
-
-//echo json_encode($activeRecord->find('Evento'));
+$autorId = $activeRecord->insert(['Autor'],['name'=>'Gabriel','surname'=>'Macus','age'=>21]);
+$noticiaId = $activeRecord->insert(['Noticia','Internacionales'],['title'=>'U.S.A ataca!!','text'=>'Lorewp wejorfdjopfdops dsfopj pofjdspo dfjsdfpo']);
 
 
-$q=['_id'=>'59cbe6c7cb0b66ac13000042'];
-$evento =$activeRecord->find('Evento',$q);
-$evento =reset($evento);
-var_dump($evento);
+$activeRecord->update(["_id"=>$noticiaId],['$set':])
 
-$id=$activeRecord->insert('Autor',array("name"=>'Bob',"surname"=>"Dylan","age"=>33));
-$evento['Autor'][]=$id;
+/*
+$noticias = $activeRecord->find('Noticia');
 
-$activeRecord->update($q,['$set'=>$evento]);
+echo json_encode($noticias);
+*/
 
-echo json_encode($activeRecord->find('Evento',$q));
+//var_dump($activeRecord->findBreadcrumb('Noticia'));
+
+var_dump($activeRecord->find('Noticia'));
