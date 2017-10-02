@@ -10,10 +10,7 @@ class ActiveRecord
 {
     protected $mongodb;
 
-    /**
-     * Checks if connection to db is established
-     * @throws DatabaseNotConnected
-     */
+
     protected function checkConnection()
     {
 
@@ -22,16 +19,6 @@ class ActiveRecord
             throw new DatabaseNotConnected($this->db);
         }
     }
-
-    /**
-     * Inserts a relation between two items
-     * @param $item1
-     * @param $item2
-     * @param bool $extraData Extra data to be stored with the relationship
-     * @return array Stored relation
-     * @throws CreateException
-     * @throws PropertyNotDefined
-     */
     function insertRelation($item1,$item2,$extraData=false)
     {
         $this->checkConnection();
@@ -62,40 +49,23 @@ class ActiveRecord
         return $data;
 
     }
-
-    /**
-     * Finds items related to the ones given in the $items array
-     * @param $items Array with items ids
-     * @return array Array of relations
-     * @throws PropertyNotDefined
-     */
-    function findRelations($items)
+    function findRelations($item)
     {
         $this->checkConnection();
 
-        if(!is_array($items))
+        if(!MongoId::isValid($item) )
         {
-            $items = [$items];
-        }
-        foreach ($items as $k=> $i)
-        {
-            if(!MongoId::isValid($i) )
-            {
-                throw new PropertyNotDefined("_id");
-            }
-            else
-            {
-                $items[$k]=new MongoId($i);
-            }
+            throw new PropertyNotDefined("_id");
         }
 
         $collection=$this->mongodb->relations;
 
-        $data =array('$or' => array(
-            array("item1._id" => ['$in'=>$items]),
-            array("item2._id" => ['$in'=>$items])
-        ));
+        $item = new MongoId($item);
 
+        $data =array('$or' => array(
+            array("item1._id" => $item),
+            array("item2._id" => $item)
+        ));
 
         $cursor= $collection->find($data);
 
@@ -109,85 +79,6 @@ class ActiveRecord
         return $results;
 
     }
-
-    /**
-     * Inserts a new item
-     * @param $breadcrumb Array with types/subtypes corresponding to the current item
-     * @param $data Data of the item to be inserted
-     * @return string Id of de inserted item
-     * @throws CreateException
-     * @throws TypeNotDefined
-     *
-     */
-    function insert($breadcrumb,$data)
-    {
-        if(empty($breadcrumb))
-        {
-            throw new TypeNotDefined();
-        }
-
-        $this->checkConnection();
-
-        if(!is_array($breadcrumb))
-        {
-            $breadcrumb=[$breadcrumb];
-        }
-
-        $id = $this->insertBreadcrumb($breadcrumb);
-
-        $data["type"]= new MongoId($id);
-
-        $data["created_at"] = time();
-
-        $collection=$this->mongodb->items;
-
-        $result= $collection->insert($data);
-
-        foreach ($data as $k=>$v)
-        {
-            if(count($this->findBreadcrumbReverse($k)) > 0)
-            {
-
-                $item1 = array("_id"=>$data["_id"], "type"=>reset($breadcrumb));
-
-                    foreach ($v as $clave => $valor)
-                    {
-
-                        foreach ($valor as $i => $j)
-                        {
-                            $item2 = array("_id"=>$j["_id"], "type"=>$k);
-
-                            if(isset($j["data"]))
-                            {
-                                $this->insertRelation($item1,$item2,$j["data"]);
-                            }
-                            else
-                            {
-                                $this->insertRelation($item1,$item2);
-                            }
-
-                        }
-
-                    }
-
-            }
-        }
-
-        if(!empty($result["err"]))
-        {
-            throw new CreateException($data);
-        }
-
-        return strval($data["_id"]);
-    }
-
-    /**
-     * Inserts a new type
-     * @param $type Type to be inserted
-     * @param int $belongs Id corresponding to the father of the item to be inserted, zero if it's a root type
-     * @return mixed
-     * @throws CreateException
-     */
     function insertType($type,$belongs=0)
     {
         $collection=$this->mongodb->types;
@@ -209,41 +100,24 @@ class ActiveRecord
 
         return $cursor->next()["_id"];
     }
-
-    /**
-     * Inserts a breadcrumb of types
-     * @param $breadcrumb Breadcrumb to be inserted
-     * @return int|mixed Last inserted type id
-     */
-    function insertBreadcrumb($breadcrumb)
+    function findBreadcrumbReverse($type,&$breadcrumb=array(),$attr='name')
     {
-
-        if(!is_array($breadcrumb))
+        $this->checkConnection();
+        $collection=$this->mongodb->types;
+        $data[$attr]=$type;
+        $cursor=$collection->find($data);
+        if($item=$cursor->next())
         {
-            $breadcrumb = [$breadcrumb];
-        }
-        $insertedTypes=[];
-        foreach ($breadcrumb as $k=>$v)
-        {
-            $id=0 ;
-            if(count($insertedTypes))
+            $item["_id"]=strval($item["_id"]);
+            $breadcrumb[]=$item;
+            if($item['belongs'] != "0")
             {
-                $id=$insertedTypes[$k-1];
+                $this->findBreadcrumbReverse($item["belongs"],$breadcrumb,'_id');
             }
-            $id =$this->insertType($v,$id);
-            $insertedTypes[$k]=$id;
         }
+        return array_reverse($breadcrumb);
 
-        return $id;
     }
-
-    /**
-     * Finds a complete breadcrumb of types, given a root type
-     * @param $type Root type
-     * @param array $breadcrumb Array where the function stores the breadcrumb
-     * @param string $attr Attribute that corresponds to the $type argument
-     * @return array Breadcrumb of types
-     */
     function findBreadcrumb($type,&$breadcrumb=array(),$attr='name')
     {
         $this->checkConnection();
@@ -270,10 +144,9 @@ class ActiveRecord
 
         $data["belongs"]=new MongoId($type);
 
-
         $cursor=$collection->find($data);
 
-        while($item=$cursor->next())
+        if($item=$cursor->next())
         {
             $item["_id"]=strval($item["_id"]);
 
@@ -287,33 +160,27 @@ class ActiveRecord
         return $breadcrumb;
 
     }
-
-    /**
-     * Finds a complete breadcrumb of types, given a child type
-     * @param $type Child type
-     * @param array $breadcrumb Array where the function stores the breadcrumb
-     * @param string $attr Attribute that corresponds to the $type argument
-     * @return array Breadcrumb of types
-     */
-    function findBreadcrumbReverse($type,&$breadcrumb=array(),$attr='name')
+    function insertBreadcrumb($breadcrumb)
     {
-        $this->checkConnection();
-        $collection=$this->mongodb->types;
-        $data[$attr]=$type;
-        $cursor=$collection->find($data);
-        if($item=$cursor->next())
+
+        if(!is_array($breadcrumb))
         {
-            $item["_id"]=strval($item["_id"]);
-            $breadcrumb[]=$item;
-            if($item['belongs'] != "0")
-            {
-                $this->findBreadcrumbReverse($item["belongs"],$breadcrumb,'_id');
-            }
+            $breadcrumb = [$breadcrumb];
         }
-        return array_reverse($breadcrumb);
+        $insertedTypes=[];
+        foreach ($breadcrumb as $k=>$v)
+        {
+            $id=0 ;
+            if(count($insertedTypes))
+            {
+                $id=$insertedTypes[$k-1];
+            }
+            $id =$this->insertType($v,$id);
+            $insertedTypes[$k]=$id;
+        }
 
+        return $id;
     }
-
     function find($type,$data =array(),&$result=array(),$process=false,$dominant = false)
     {
 
@@ -341,6 +208,7 @@ class ActiveRecord
         $breadcrumb = array();
         
         $this->findBreadcrumb($type,$breadcrumb,$attr);
+        
 
         $inBreadcrumb = array_map(function($el)
         {
@@ -354,47 +222,108 @@ class ActiveRecord
 
         $cursor=$collection->find($data);
 
-        $assocItemsIds=[];
-
         while ($item = $cursor->next())
         {
 
-           $result[strval($item["_id"])]=$item;
+            $key =strval($item["_id"]);
 
-           foreach ($item as $k=>$v)
-           {
-               if(is_array($v) && $k != '_id' && $k != 'type')
-               {
-                   foreach ($v as $clave => $valor)
-                   {
+            $item['type'] = $breadcrumb;
 
-                       if(is_array($valor))
-                       {
-                           foreach ($valor as $i=>$j)
-                           {
+            $item["_id"] = $key;
 
-                               if(isset($j["_id"]) && MongoId::isValid($j["_id"]))
-                               {
-                                   $assocItemsIds[$i][]=$j;
-                               }
-                           }
+            if(is_callable($process))
+            {
+                $result[$key]= $process($item);
+            }
+            else
+            {
+                $result[$key]=$item;
+            }
 
-                       }
+            $relations = $this->findRelations($item["_id"]);
+
+            foreach ($relations as $k => $v)
+            {
+
+                foreach ($v as $clave => $valor)
+                {
 
 
-                   }
+                    if(($clave == 'item1' || $clave == 'item2') && strval($valor["_id"]) != $key && strval($valor["_id"]) != $dominant)
+                    {
 
-               }
+                        $t =$valor["type"];
 
-           }
+                        $result[$key][$t]=array();
+
+                        $this->find($t,array("_id"=>new MongoId($valor["_id"])),$result[$key][$t],false,$key);
+
+
+                    }
+                }
+
+
+            }
 
         }
 
-        var_dump($assocItemsIds);
-
-
-        //$relations = $this->findRelations($item["_id"]);
         return $result;
+    }
+    function insert($breadcrumb,$data)
+    {
+        if(empty($breadcrumb))
+        {
+            throw new TypeNotDefined();
+        }
+
+        $this->checkConnection();
+
+        if(!is_array($breadcrumb))
+        {
+            $breadcrumb=[$breadcrumb];
+        }
+
+        $id = $this->insertBreadcrumb($breadcrumb);
+
+        $data["type"]= new MongoId($id);
+        
+        $data["created_at"] = time();
+
+        $collection=$this->mongodb->items;
+
+        $result= $collection->insert($data);
+
+        foreach ($data as $k=>$v)
+        {
+            if(count($this->findBreadcrumbReverse($k)) > 0)
+            {
+                $item1 = array("_id"=>$data["_id"], "type"=>reset($breadcrumb));
+                if(is_array($v))
+                {
+                    foreach ($v as $clave => $valor)
+                    {
+
+                        $item2 = array("_id"=>$valor, "type"=>$k);
+
+                        $this->insertRelation($item1,$item2);
+                    }
+                }
+                else
+                {
+
+                    $item2 = array("_id"=>$v, "type"=>$k);
+
+                    $this->insertRelation($item1,$item2);
+                }
+            }
+        }
+
+        if(!empty($result["err"]))
+        {
+            throw new CreateException($data);
+        }
+        
+        return strval($data["_id"]);
     }
     function update($data,$newData,$upsert=false)
     {

@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.6.5/angular.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons"
+          rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+
+</head>
+<body data-ng-app="app" data-ng-controller="ctrl">
+<style>
+    /* http://meyerweb.com/eric/tools/css/reset/
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+    html, body, div, span, applet, object, iframe,
+    h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+    a, abbr, acronym, address, big, cite, code,
+    del, dfn, em, img, ins, kbd, q, s, samp,
+    small, strike, strong, sub, sup, tt, var,
+    b, u, i, center,
+    dl, dt, dd, ol, ul, li,
+    fieldset, form, label, legend,
+    table, caption, tbody, tfoot, thead, tr, th, td,
+    article, aside, canvas, details, embed,
+    figure, figcaption, footer, header, hgroup,
+    menu, nav, output, ruby, section, summary,
+    time, mark, audio, video {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        font-size: 100%;
+        font: inherit;
+        vertical-align: baseline;
+    }
+    /* HTML5 display-role reset for older browsers */
+    article, aside, details, figcaption, figure,
+    footer, header, hgroup, menu, nav, section {
+        display: block;
+    }
+    body {
+        line-height: 1;
+    }
+    ol, ul {
+        list-style: none;
+    }
+    blockquote, q {
+        quotes: none;
+    }
+    blockquote:before, blockquote:after,
+    q:before, q:after {
+        content: '';
+        content: none;
+    }
+    table {
+        border-collapse: collapse;
+        border-spacing: 0;
+    }
+    html,body
+    {
+        font-family: 'Roboto', sans-serif;
+
+        width: 100%;
+        height: 100%;
+        display: flex;
+
+    }
+    .main-container
+    {
+        margin: auto;
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+        align-items: center;
+        height: 100%;
+        /*background-color: #E1E2E1;*/
+
+    }
+    .main-container .time
+    {
+        width: 100%;
+        position: absolute;
+        text-align: center;
+        z-index: 10;
+        font-size: 40px;
+    }
+    .main-container .circle-wrapper
+    {
+        width: 100%;
+        height: 50%;
+        position: relative;
+    }
+    .main-container .circle
+    {
+        left: 4%;
+        position: absolute;
+        border: #212121 solid 18px;
+        width: 80%;
+        border-radius: 50%;
+        height: 90%;
+        margin: auto;
+    }
+    .main-container .circle.circle-elapsed
+    {
+
+
+    }
+    .main-container .timer-controls
+    {
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 5%;
+        /* margin: auto; */
+        width: 90%;
+        margin-top: 5%;
+    }
+    .main-container .timer-controls .control
+    {
+        width: 48%;
+        margin-right: 4%;
+        float: left;
+    }
+    .main-container .timer-controls .control input
+    {
+        width: 100%;
+        border: 0;
+        outline:0 ;
+        text-align: center;
+    }
+    .main-container .timer-controls .control:nth-child(2n)
+    {
+        margin: 0;
+    }
+
+    .main-container .timer-controls .control .icon
+    {
+        width: 100%;
+        text-align: center;
+        float: left;
+    }
+</style>
+<script>
+    var app = angular.module('app', []);
+    app.controller('ctrl', function($scope,$interval) {
+        //console.log(90+(3.6*40));
+        //var nextDeg=-90+(3.6*(70-50));
+        $scope.circleElapsed= {};
+        $scope.timer= { elapsed:{minutes:"00",seconds:"00"}};
+        $scope.getTime=function(time)
+        {
+
+            var minutes = (Math.floor(time / 60)).toFixed(0);
+
+            var seconds = ( time - minutes * 60).toFixed(0);
+
+            return [minutes,seconds];
+        }
+        $scope.startTimer=function () {
+
+            if($scope.timer.interval)
+            {
+                $interval.cancel($scope.timer.interval);
+            }
+            var backColor="white";
+
+            var elapsed=0;
+
+            var elapsedPercent =0;
+
+            var interval=1000;
+
+            var startTime = new Date();
+
+           $scope.timer.interval= $interval(function () {
+
+               var totalSeconds =  ($scope.timer.minutes*60)+$scope.timer.seconds;
+
+               //  elapsed +=interval;
+
+                var now = new Date();
+                elapsed =  Math.abs(now - startTime);
+
+
+                var time = $scope.getTime((elapsed/1000));
+
+                elapsedPercent =Math.ceil( ((elapsed/1000)*100) / totalSeconds);
+
+                elapsedPercent = (elapsedPercent>=99)?100 : elapsedPercent;
+
+
+                    if(elapsedPercent >= 100)
+                  {
+
+                      if(!$scope.timeCompletedInterval)
+                      {
+                          $scope.timeCompletedInterval=$interval(function () {
+                              if($scope.progressColor == '#EEEEEE')
+                              {
+                                  $scope.progressColor = '#D32F2F';
+                              }
+                              else
+                              {
+                                  $scope.progressColor = '#EEEEEE';
+                              }
+
+                          },500);
+
+                      }
+
+
+                  }
+                  else
+                    {
+                        $scope.progressColor ='#2E7D32';
+
+                        if(totalSeconds-((elapsed/1000))<=60)
+                        {
+                            $scope.progressColor = '#FFEB3B';
+                        }
+                    }
+
+
+                if(elapsedPercent<50)
+                {
+                    var nextDeg =90+(3.6*elapsedPercent);
+
+                    $scope.circleElapsed.backgroundImage = ' linear-gradient(90deg, '+backColor+' 50%, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0)), linear-gradient('+nextDeg+'deg, '+$scope.progressColor+' 50%,  '+backColor+' 50%,  '+backColor+')';
+
+
+                }
+                else
+                {var nextDeg=-90+(3.6*(elapsedPercent-50));
+
+                    $scope.circleElapsed.backgroundImage = 'linear-gradient('+nextDeg+'deg, '+$scope.progressColor+' 50%, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0)), linear-gradient(270deg,  '+$scope.progressColor+' 50%,  '+backColor+' 50%,  '+backColor+')';
+
+                }
+
+                $scope.timer.elapsed.minutes = ("0"+time[0]).slice(-2);
+
+                $scope.timer.elapsed.seconds = ("0"+time[1]).slice(-2);
+
+                /*
+                if(elapsedPercent >= 100)
+                {
+                    $interval.cancel($scope.timer.interval);
+                }*/
+
+            },interval);
+
+
+
+        }
+    });
+</script>
+
+<section class="main-container">
+    <div class="timer-controls">
+        <div class="minutes control">
+            <span class="icon">
+                <i class="material-icons">keyboard_arrow_up</i>
+            </span>
+            <input placeholder="mm" type="number" >
+            <span class="icon">
+                <i class="material-icons">keyboard_arrow_down</i>
+            </span>
+        </div>
+        <div class="seconds control">
+                   <span class="icon">
+                <i class="material-icons">keyboard_arrow_up</i>
+            </span>
+            <input placeholder="ss" type="number" >
+            <span class="icon">
+                <i class="material-icons">keyboard_arrow_down</i>
+            </span>
+        </div>
+    </div>
+    <div class="time" data-ng-click="startTimer()">
+        <span class="minutes">{{timer.elapsed.minutes}}</span>
+        <span class="dots">:</span>
+        <span class="seconds">{{timer.elapsed.seconds}}</span>
+    </div>
+    <div class="circle-wrapper" >
+
+        <div class="circle">
+
+
+        </div>
+
+        <div class="circle circle-elapsed" data-ng-style="circleElapsed">
+
+        </div>
+    </div>
+
+
+</section>
+
+</body>
+</html>
