@@ -314,14 +314,8 @@ class ActiveRecord
 
     }
 
-    function find($type,$data =array(),&$result=array(),$process=false,$dominant = false)
+    function find($data =array(),&$result=array(),$process=false,$dominant = false)
     {
-
-        if(empty($type))
-        {
-            throw  new TypeNotDefined();
-        }
-
         $this->checkConnection();
 
         if(empty($data))
@@ -335,20 +329,6 @@ class ActiveRecord
                 $data["_id"] = new MongoId($data["_id"]);
             }
         }
-
-        $attr = (MongoId::isValid($type))?'_id':'name';
-
-        $breadcrumb = array();
-        
-        $this->findBreadcrumb($type,$breadcrumb,$attr);
-
-        $inBreadcrumb = array_map(function($el)
-        {
-            return new MongoId($el['_id']);
-
-        },$breadcrumb);
-
-        $data["type"] = ['$in' => $inBreadcrumb ];//new MongoId(end($breadcrumb)["_id"]);
 
         $collection=$this->mongodb->items;
 
@@ -375,7 +355,10 @@ class ActiveRecord
 
                                if(isset($j["_id"]) && MongoId::isValid($j["_id"]))
                                {
-                                   $assocItemsIds[$i][]=$j;
+                                   //$assocItemsIds[]=new MongoId($j["_id"]);
+                                   $id = $j["_id"] ;
+                                   $j["_id"] = new MongoId($id);
+                                   $assocItemsIds[$k][$id]=$j;
                                }
                            }
 
@@ -390,12 +373,13 @@ class ActiveRecord
 
         }
 
-        var_dump($assocItemsIds);
+        echo json_encode($assocItemsIds);
 
 
         //$relations = $this->findRelations($item["_id"]);
         return $result;
     }
+
     function update($data,$newData,$upsert=false)
     {
         $this->checkConnection();

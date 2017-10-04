@@ -43,4 +43,4 @@ var_dump($activeRecord->findBreadcrumb('Noticia'));
 var_dump($activeRecord->findBreadcrumbReverse('Policiales'));
 */
 
-echo json_encode($activeRecord->find('Noticia'));
+$activeRecord->find();
