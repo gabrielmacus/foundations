@@ -17,8 +17,7 @@ class ActiveRecord
     protected function checkConnection()
     {
 
-        if(empty($this->mongodb))
-        {
+        if (empty($this->mongodb)) {
             throw new DatabaseNotConnected($this->db);
         }
     }
@@ -32,33 +31,30 @@ class ActiveRecord
      * @throws CreateException
      * @throws PropertyNotDefined
      */
-    function insertRelation($item1,$item2,$extraData=false)
+    function insertRelation($item1, $item2, $extraData = false)
     {
         $this->checkConnection();
-        
-        if(empty($item1) || empty($item1["_id"]) || !MongoId::isValid($item1["_id"]) || empty($item2) || empty($item2["_id"]) || !MongoId::isValid($item2["_id"]))
-        {
+
+        if (empty($item1) || empty($item1["_id"]) || !MongoId::isValid($item1["_id"]) || empty($item2) || empty($item2["_id"]) || !MongoId::isValid($item2["_id"])) {
             throw new PropertyNotDefined("_id");
         }
 
         $item1["_id"] = new MongoId($item1["_id"]);
         $item2["_id"] = new MongoId($item2["_id"]);
-        $data = array("item1"=>$item1,"item2"=>$item2,"created_at"=>time());
-        
-        if(!empty($extraData) && is_array($extraData))
-        {
-            $data = array_merge($data,$extraData); 
+        $data = array("item1" => $item1, "item2" => $item2, "created_at" => time());
+
+        if (!empty($extraData) && is_array($extraData)) {
+            $data = array_merge($data, $extraData);
         }
 
-        $collection=$this->mongodb->relations;
+        $collection = $this->mongodb->relations;
 
-        $result=$collection->insert($data);
+        $result = $collection->insert($data);
 
-        if(!empty($result["err"]))
-        {
+        if (!empty($result["err"])) {
             throw new CreateException($data);
         }
-        
+
         return $data;
 
     }
@@ -73,37 +69,31 @@ class ActiveRecord
     {
         $this->checkConnection();
 
-        if(!is_array($items))
-        {
+        if (!is_array($items)) {
             $items = [$items];
         }
-        foreach ($items as $k=> $i)
-        {
-            if(!MongoId::isValid($i) )
-            {
+        foreach ($items as $k => $i) {
+            if (!MongoId::isValid($i)) {
                 throw new PropertyNotDefined("_id");
-            }
-            else
-            {
-                $items[$k]=new MongoId($i);
+            } else {
+                $items[$k] = new MongoId($i);
             }
         }
 
-        $collection=$this->mongodb->relations;
+        $collection = $this->mongodb->relations;
 
-        $data =array('$or' => array(
-            array("item1._id" => ['$in'=>$items]),
-            array("item2._id" => ['$in'=>$items])
+        $data = array('$or' => array(
+            array("item1._id" => ['$in' => $items]),
+            array("item2._id" => ['$in' => $items])
         ));
 
 
-        $cursor= $collection->find($data);
+        $cursor = $collection->find($data);
 
-        $results=[];
+        $results = [];
 
-        while ($result = $cursor->next())
-        {
-            $results[]=$result;
+        while ($result = $cursor->next()) {
+            $results[] = $result;
         }
 
         return $results;
@@ -119,62 +109,61 @@ class ActiveRecord
      * @throws TypeNotDefined
      *
      */
-    function insert($breadcrumb,$data)
+    function insert($breadcrumb, $data)
     {
-        if(empty($breadcrumb))
-        {
+        if (empty($breadcrumb)) {
             throw new TypeNotDefined();
         }
 
         $this->checkConnection();
 
-        if(!is_array($breadcrumb))
-        {
-            $breadcrumb=[$breadcrumb];
+        if (!is_array($breadcrumb)) {
+            $breadcrumb = [$breadcrumb];
         }
 
         $id = $this->insertBreadcrumb($breadcrumb);
 
-        $data["type"]= new MongoId($id);
+        $data["type"] = new MongoId($id);
 
         $data["created_at"] = time();
 
-        $collection=$this->mongodb->items;
+        $collection = $this->mongodb->items;
 
-        $result= $collection->insert($data);
+        $result = $collection->insert($data);
 
-        foreach ($data as $k=>$v)
-        {
-            if(count($this->findBreadcrumbReverse($k)) > 0)
-            {
+        foreach ($data as $k => $v) {
 
-                $item1 = array("_id"=>$data["_id"], "type"=>reset($breadcrumb));
+            if (is_array($v)) {
+                
+                foreach ($v as $clave => $valor) {
 
-                    foreach ($v as $clave => $valor)
+                    if((!empty($valor["_id"]) && MongoId::isValid($valor["_id"])) || MongoId::isValid($valor))
                     {
+                        $id = (!empty($valor["_id"]))?$valor["_id"]:$valor;
 
-                        foreach ($valor as $i => $j)
-                        {
-                            $item2 = array("_id"=>$j["_id"], "type"=>$k);
 
-                            if(isset($j["data"]))
-                            {
-                                $this->insertRelation($item1,$item2,$j["data"]);
-                            }
-                            else
-                            {
-                                $this->insertRelation($item1,$item2);
-                            }
+                        $item1 = array("_id" => new MongoId($id));
 
+                        $item2 = array("_id" => $j["_id"], "type" => $k);
+
+                        if (isset($j["data"])) {
+                            $this->insertRelation($item1, $item2, $j["data"]);
+                        } else {
+                                $this->insertRelation($item1, $item2);
                         }
+
 
                     }
 
+
+
+                }
             }
+
+
         }
 
-        if(!empty($result["err"]))
-        {
+        if (!empty($result["err"])) {
             throw new CreateException($data);
         }
 
@@ -188,24 +177,23 @@ class ActiveRecord
      * @return mixed
      * @throws CreateException
      */
-    function insertType($type,$belongs=0)
+    function insertType($type, $belongs = 0)
     {
-        $collection=$this->mongodb->types;
+        $collection = $this->mongodb->types;
 
-        $tData= array('name' => $type,'belongs'=>$belongs);
+        $tData = array('name' => $type, 'belongs' => $belongs);
 
-        $result= $collection->update(
+        $result = $collection->update(
             $tData,
             array('$setOnInsert' => $tData),
             array('upsert' => true)
         );
-        
-        if(!empty($result["err"]))
-        {
+
+        if (!empty($result["err"])) {
             throw new CreateException($tData);
         }
 
-        $cursor=$collection->find($tData);
+        $cursor = $collection->find($tData);
 
         return $cursor->next()["_id"];
     }
@@ -218,20 +206,17 @@ class ActiveRecord
     function insertBreadcrumb($breadcrumb)
     {
 
-        if(!is_array($breadcrumb))
-        {
+        if (!is_array($breadcrumb)) {
             $breadcrumb = [$breadcrumb];
         }
-        $insertedTypes=[];
-        foreach ($breadcrumb as $k=>$v)
-        {
-            $id=0 ;
-            if(count($insertedTypes))
-            {
-                $id=$insertedTypes[$k-1];
+        $insertedTypes = [];
+        foreach ($breadcrumb as $k => $v) {
+            $id = 0;
+            if (count($insertedTypes)) {
+                $id = $insertedTypes[$k - 1];
             }
-            $id =$this->insertType($v,$id);
-            $insertedTypes[$k]=$id;
+            $id = $this->insertType($v, $id);
+            $insertedTypes[$k] = $id;
         }
 
         return $id;
@@ -244,42 +229,37 @@ class ActiveRecord
      * @param string $attr Attribute that corresponds to the $type argument
      * @return array Breadcrumb of types
      */
-    function findBreadcrumb($type,&$breadcrumb=array(),$attr='name')
+    function findBreadcrumb($type, &$breadcrumb = array(), $attr = 'name')
     {
         $this->checkConnection();
 
-        $collection=$this->mongodb->types;
+        $collection = $this->mongodb->types;
 
-        if($attr == 'name')
-        {
-            $cursor= $collection->find(['name'=>$type]);
+        if ($attr == 'name') {
+            $cursor = $collection->find(['name' => $type]);
+            $mainType = $cursor->next();
+            $type = $mainType["_id"];
+        } elseif ($attr == '_id') {
+            $cursor = $collection->find(['_id' => new MongoId($type)]);
             $mainType = $cursor->next();
             $type = $mainType["_id"];
         }
-        elseif($attr == '_id')
-        {
-            $cursor= $collection->find(['_id'=>new MongoId($type)]);
-            $mainType = $cursor->next();
-            $type = $mainType["_id"];
+
+        if (count($breadcrumb) == 0) {
+            $breadcrumb[] = $mainType;
         }
 
-        if(count($breadcrumb)==0)
-        {
-            $breadcrumb[]=$mainType;
-        }
-
-        $data["belongs"]=new MongoId($type);
+        $data["belongs"] = new MongoId($type);
 
 
-        $cursor=$collection->find($data);
+        $cursor = $collection->find($data);
 
-        while($item=$cursor->next())
-        {
-            $item["_id"]=strval($item["_id"]);
+        while ($item = $cursor->next()) {
+            $item["_id"] = strval($item["_id"]);
 
-            $breadcrumb[]=$item;
+            $breadcrumb[] = $item;
 
-            $this->findBreadcrumb($item["_id"],$breadcrumb,'_id');
+            $this->findBreadcrumb($item["_id"], $breadcrumb, '_id');
 
         }
 
@@ -295,81 +275,69 @@ class ActiveRecord
      * @param string $attr Attribute that corresponds to the $type argument
      * @return array Breadcrumb of types
      */
-    function findBreadcrumbReverse($type,&$breadcrumb=array(),$attr='name')
+    function findBreadcrumbReverse($type, &$breadcrumb = array(), $attr = 'name')
     {
         $this->checkConnection();
-        $collection=$this->mongodb->types;
-        $data[$attr]=$type;
-        $cursor=$collection->find($data);
-        if($item=$cursor->next())
-        {
-            $item["_id"]=strval($item["_id"]);
-            $breadcrumb[]=$item;
-            if($item['belongs'] != "0")
-            {
-                $this->findBreadcrumbReverse($item["belongs"],$breadcrumb,'_id');
+        $collection = $this->mongodb->types;
+        $data[$attr] = $type;
+        $cursor = $collection->find($data);
+        if ($item = $cursor->next()) {
+            $item["_id"] = strval($item["_id"]);
+            $breadcrumb[] = $item;
+            if ($item['belongs'] != "0") {
+                $this->findBreadcrumbReverse($item["belongs"], $breadcrumb, '_id');
             }
         }
         return array_reverse($breadcrumb);
 
     }
 
-    function find($data =array(),&$result=array(),$process=false,$dominant = false)
+    function find($data = array(), &$result = array(), $process = false, $dominant = false)
     {
         $this->checkConnection();
 
-        if(empty($data))
-        {
-            $data=[];
-        }
-        else
-        {
-            if(!empty($data["_id"]) && MongoId::isValid($data["_id"]))
-            {
+        if (empty($data)) {
+            $data = [];
+        } else {
+            if (!empty($data["_id"]) && MongoId::isValid($data["_id"])) {
                 $data["_id"] = new MongoId($data["_id"]);
             }
         }
 
-        $collection=$this->mongodb->items;
+        $collection = $this->mongodb->items;
 
-        $cursor=$collection->find($data);
+        $cursor = $collection->find($data);
 
-        $assocItemsIds=[];
+        $assocItemsIds = [];
 
-        while ($item = $cursor->next())
-        {
+        while ($item = $cursor->next()) {
 
-           $result[strval($item["_id"])]=$item;
+            $result[strval($item["_id"])] = $item;
 
-           foreach ($item as $k=>$v)
-           {
-               if(is_array($v) && $k != '_id' && $k != 'type')
-               {
-                   foreach ($v as $clave => $valor)
-                   {
+            foreach ($item as $k => $v) {
+                if (is_array($v) && $k != '_id' && $k != 'type') {
+                    foreach ($v as $clave => $valor) {
 
-                       if(is_array($valor))
-                       {
-                           foreach ($valor as $i=>$j)
-                           {
+                        if (is_array($valor)) {
+                            foreach ($valor as $i => $j) {
 
-                               if(isset($j["_id"]) && MongoId::isValid($j["_id"]))
-                               {
-                                   //$assocItemsIds[]=new MongoId($j["_id"]);
-                                   $id = $j["_id"] ;
-                                   $j["_id"] = new MongoId($id);
-                                   $assocItemsIds[$k][$id]=$j;
-                               }
-                           }
+                                if (isset($j["_id"]) && MongoId::isValid($j["_id"])) {
+                                    //$assocItemsIds[]=new MongoId($j["_id"]);
+                                    $id = $j["_id"];
+                                    //$j["_id"] = new MongoId($id);
+                                    //$assocItemsIds[$k][$id]=$j;
+                                    $assocItemsIds[] = new MongoId($id);
+                                }
+                            }
 
-                       }
+                        }
 
 
-                   }
+                    }
 
-               }
+                }
 
-           }
+            }
 
         }
 
@@ -380,64 +348,58 @@ class ActiveRecord
         return $result;
     }
 
-    function update($data,$newData,$upsert=false)
+    function update($data, $newData, $upsert = false)
     {
         $this->checkConnection();
 
-        $collection=$this->mongodb->items;
+        $collection = $this->mongodb->items;
 
-        if(!empty($data['_id']) && MongoId::isValid($data['_id']))
-        {
-            $data['_id']= new MongoId($data['_id']);
+        if (!empty($data['_id']) && MongoId::isValid($data['_id'])) {
+            $data['_id'] = new MongoId($data['_id']);
         }
 
         unset($newData["_id"]);
 
         $newData["updated_at"] = time();
 
-        if(!empty($upsert)  && is_array($upsert))
-        {
-            $id= $this->insertBreadcrumb($upsert);
+        if (!empty($upsert) && is_array($upsert)) {
+            $id = $this->insertBreadcrumb($upsert);
 
             $newData["type"] = new MongoId($id);
 
-           $result= $collection->update(
+            $result = $collection->update(
                 $data,
                 array('$setOnInsert' => $newData),
                 array('upsert' => true)
             );
-        }
-        else
-        {
-            $result=    $collection->update($data,$newData);
+        } else {
+            $result = $collection->update($data, $newData);
         }
 
-        if(!empty($result["err"]))
-        {
+        if (!empty($result["err"])) {
             throw new UpdateException($data);
         }
 
         return $newData;
-        
+
     }
+
     function delete($id)
     {
-        
-        if( !MongoId::isValid($id))
-        {
+
+        if (!MongoId::isValid($id)) {
             throw new PropertyNotDefined("_id");
         }
 
-        $data = array("_id"=>new MongoId($id));
-        
+        $data = array("_id" => new MongoId($id));
+
         $this->checkConnection();
 
-        $collection=$this->mongodb->items;
+        $collection = $this->mongodb->items;
 
-        $result=$collection->remove($data,array("justOne"=>true));
+        $result = $collection->remove($data, array("justOne" => true));
 
-        if(!empty($result["err"]))
-        {
+        if (!empty($result["err"])) {
             throw new DeleteException($data);
         }
 
@@ -448,9 +410,7 @@ class ActiveRecord
     {
         if (property_exists($this, $property)) {
             $this->$property = $value;
-        }
-        else
-        {
+        } else {
             throw new PropertyNotDefined($property);
         }
     }
