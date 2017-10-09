@@ -9,4 +9,5 @@
 
 include ("Classes/autoload.php");
 include ("Exceptions/autoload.php");
+include ("Helpers/autoload.php");
 //define("dirPath",)

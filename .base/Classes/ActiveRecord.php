@@ -26,6 +26,7 @@ class ActiveRecord
      * Inserts a relation between two items
      * @param $item1
      * @param $item2
+     * @param $collection Collection where data will be stored in JSON
      * @param bool $extraData Extra data to be stored with the relationship
      * @return array Stored relation
      * @throws CreateException
@@ -41,7 +42,7 @@ class ActiveRecord
 
         $item1["_id"] = new MongoId($item1["_id"]);
         $item2["_id"] = new MongoId($item2["_id"]);
-        $data = array("item1" => $item1, "item2" => $item2, "created_at" => time());
+        $data = array("item1" => $item1, "item2" => $item2,"created_at" => time());
 
         if (!empty($extraData) && is_array($extraData)) {
             $data = array_merge($data, $extraData);
@@ -96,6 +97,12 @@ class ActiveRecord
             $results[] = $result;
         }
 
+        foreach ($results as $k => $v)
+        {
+            //TODO HERE
+        }
+
+
         return $results;
 
     }
@@ -137,19 +144,21 @@ class ActiveRecord
                 
                 foreach ($v as $clave => $valor) {
 
-                    if((!empty($valor["_id"]) && MongoId::isValid($valor["_id"])) || MongoId::isValid($valor))
+
+                    if(MongoId::isValid($clave) || MongoId::isValid($valor))
                     {
-                        $id = (!empty($valor["_id"]))?$valor["_id"]:$valor;
+
+                        $mongoId = (MongoId::isValid($clave))?$clave:$valor;
 
 
-                        $item1 = array("_id" => new MongoId($id));
+                        $item1 = array("_id" => new MongoId($mongoId));
 
-                        $item2 = array("_id" => $j["_id"], "type" => $k);
+                        $item2 = array("_id" => $data["_id"]);
 
-                        if (isset($j["data"])) {
-                            $this->insertRelation($item1, $item2, $j["data"]);
+                        if (!empty($valor["data"])) {
+                            $this->insertRelation($item1, $item2,$valor["data"]);
                         } else {
-                                $this->insertRelation($item1, $item2);
+                                $this->insertRelation($item1,$item2);
                         }
 
 
@@ -292,8 +301,10 @@ class ActiveRecord
 
     }
 
-    function find($data = array(), &$result = array(), $process = false, $dominant = false)
+
+    function find($data = array(), &$result = array(), $child=false,$process = false)
     {
+
         $this->checkConnection();
 
         if (empty($data)) {
@@ -310,26 +321,34 @@ class ActiveRecord
 
         $assocItemsIds = [];
 
+        $itemsIds = [];
+
         while ($item = $cursor->next()) {
 
-            $result[strval($item["_id"])] = $item;
+            $item["_id"] = strval($item["_id"]);
+            if(!$child)
+            {
 
+                $result[$item["_id"]] = $item;
+
+            }
+            else
+            {
+
+                array_update($result,$item,$item["_id"]);
+            }
+
+            $itemsIds[]= new MongoId($item["_id"]);
+            /*
             foreach ($item as $k => $v) {
                 if (is_array($v) && $k != '_id' && $k != 'type') {
                     foreach ($v as $clave => $valor) {
 
-                        if (is_array($valor)) {
-                            foreach ($valor as $i => $j) {
 
-                                if (isset($j["_id"]) && MongoId::isValid($j["_id"])) {
-                                    //$assocItemsIds[]=new MongoId($j["_id"]);
-                                    $id = $j["_id"];
-                                    //$j["_id"] = new MongoId($id);
-                                    //$assocItemsIds[$k][$id]=$j;
-                                    $assocItemsIds[] = new MongoId($id);
-                                }
-                            }
+                        if (MongoId::isValid($clave) || MongoId::isValid($valor) ) {
+                            $id = MongoId::isValid($clave)?$clave : $valor;
 
+                            $assocItemsIds[] = new MongoId($id);
                         }
 
 
@@ -337,11 +356,18 @@ class ActiveRecord
 
                 }
 
-            }
+            }*/
+
 
         }
 
-        echo json_encode($assocItemsIds);
+        var_dump($itemsIds);
+
+        var_dump($this->findRelations($itemsIds));
+        if(count($assocItemsIds) > 0)
+        {
+            $this->find(['_id'=>['$in'=>$assocItemsIds]],$result,true,$process);
+        }
 
 
         //$relations = $this->findRelations($item["_id"]);

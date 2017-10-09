@@ -30,11 +30,12 @@ var_dump($activeRecord->find('Noticia'));
 //var_dump($activeRecord->find('Noticia'));
 
 
+
 /*
 $noticiaId = $activeRecord->insert(['Noticia','Policiales']
     ,
     [
-        'authors'=>[['_id'=>'59d4d4fdcb0b66f807000029','data'=>['disclaimer'=>'It`s a disclaimer']]],
+        'authors'=>[ "59d979ee145f8bd86c000030"=>['data'=>['disclaimer'=>'It`s a disclaimer']]],
         'title'=>'Policia salva gatito en un árbol',
         'text'=>'Lorewp wejorfdjopfdops dsfopj pofjdspo dfjsdfpo'
     ]);
@@ -43,5 +44,19 @@ $noticiaId = $activeRecord->insert(['Noticia','Policiales']
 var_dump($activeRecord->findBreadcrumb('Noticia'));
 var_dump($activeRecord->findBreadcrumbReverse('Policiales'));
 */
+/*
+ * {
+"_id" : ObjectId("59d00940145f8b4015000031"),
+"item1" : {
+"_id" : ObjectId("59d00940145f8b4015000030"),
+"type" : "Noticia"
+},
+"item2" : {
+"_id" : ObjectId("59d00673145f8b401500002f"),
+"type" : "Autor"
+},
+"created_at" : 1506806080,
+"disclaimer" : "It`s a disclaimer"
+}*/
 
-$activeRecord->find();
+echo json_encode($activeRecord->find());
