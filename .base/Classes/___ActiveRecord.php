@@ -97,28 +97,22 @@ class ActiveRecord
             //$results[] = $result;
             $id1 = strval($result["item1"]["_id"]);
             $id2 = strval( $result["item2"]["_id"]);
-            $results[$id1][]  = $result["item2"];
-            $results[$id2][] = $result["item1"];
+            $results[$id1]  = $id2;
+            $results[$id2]  = $id1;
 
         }
 
-        echo json_encode($results);
-        exit();
         $relations = [];
-
 
         foreach ($results as $k => $v)
         {
-            if(in_array(new MongoId($k),$items))
+            $v = strval($v);
+            if(!empty($results[$v]))
             {
-                foreach ($v as $clave =>$valor)
-                {
-                    $valor["parents"][]=;
-                    $relations[strval($valor["_id"])]=$valor;
-                }
+                $relations[]  = new MongoId($results[$v]);
             }
-
         }
+
 
         return $relations;
 
@@ -158,24 +152,21 @@ class ActiveRecord
         foreach ($data as $k => $v) {
 
             if (is_array($v)) {
-                $k = explode(":",$k);
+                
                 foreach ($v as $clave => $valor) {
 
 
                     if(MongoId::isValid($clave) || MongoId::isValid($valor))
                     {
 
-
-
-                        $name1=  $k[0];
-                        $name2 = $k[1];
-
+                        $k = implode(":",$k);
+                        
                         $mongoId = (MongoId::isValid($clave))?$clave:$valor;
 
 
-                        $item1 = array("_id" => new MongoId($mongoId),"name"=>$name1);
+                        $item1 = array("_id" => new MongoId($mongoId));
 
-                        $item2 = array("_id" => $data["_id"],"name"=>$name2);
+                        $item2 = array("_id" => $data["_id"]);
 
                         if (!empty($valor["data"])) {
                             $this->insertRelation($item1, $item2,$valor["data"]);
@@ -356,17 +347,11 @@ class ActiveRecord
             }
             else
             {
-                $relatedItem = $alreadySearchedRelations[$item["_id"]];
-
-                foreach ($relatedItem["parents"] as $key => $value)
-                {
-                    $result[strval($value)][$relatedItem["name"]][$item["_id"]] = $item;
-                }
-
+                array_update($result,$item,$item["_id"]);
 
             }
 
-            if(empty($alreadySearchedRelations[$item["_id"]]))
+            if(!in_array($item["_id"],$alreadySearchedRelations))
             {
                 $itemsIds[]= new MongoId($item["_id"]);
             }
@@ -375,27 +360,18 @@ class ActiveRecord
         }
 
 
+
+        
         $assocItemsIds=[];
         if(count($itemsIds) > 0)
         {
 
-            $relations = $this->findRelations($itemsIds);
-            echo json_encode($relations);
-
-            exit();
-            foreach ($relations as $k => $v)
-            {
-
-                $assocItemsIds[]=strval($k);
-
-                $alreadySearchedRelations[$k]=$v;
-            }
+            $assocItemsIds = $this->findRelations($itemsIds);
         }
-
-
 
         if(count($assocItemsIds) > 0)
         {
+            $alreadySearchedRelations = array_merge($alreadySearchedRelations,$assocItemsIds);
 
             $this->find(['_id'=>['$in'=>$assocItemsIds]],$result,true,$process,$alreadySearchedRelations);
 

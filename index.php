@@ -15,7 +15,7 @@ $conn->db ="php";
 $activeRecord = new ActiveRecord();
 $activeRecord->mongodb =$conn->connect();
 
-//$autorId = $activeRecord->insert(['Autor'],['name'=>'Robert','surname'=>'Wilson','age'=>32]);
+//$autorId = $activeRecord->insert(['Autor'],['name'=>'Bob','surname'=>'Dylan','age'=>100]);
 
 
 /*
@@ -32,10 +32,12 @@ var_dump($activeRecord->find('Noticia'));
 
 
 /*
+
+
 $noticiaId = $activeRecord->insert(['Noticia','Policiales']
     ,
     [
-        'authors'=>[ "59d979ee145f8bd86c000030"=>['data'=>['disclaimer'=>'It`s a disclaimer']]],
+        'authors:news'=>[ "59d4d4fdcb0b66f807000029"=>['data'=>['disclaimer'=>'It`s a disclaimer']]],
         'title'=>'Policia salva gatito en un árbol',
         'text'=>'Lorewp wejorfdjopfdops dsfopj pofjdspo dfjsdfpo'
     ]);
