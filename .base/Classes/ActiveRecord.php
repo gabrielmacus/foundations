@@ -68,6 +68,7 @@ class ActiveRecord
      */
     function findRelations($items)
     {
+
         $this->checkConnection();
 
         if (!is_array($items)) {
@@ -94,33 +95,21 @@ class ActiveRecord
         $results = [];
 
         while ($result = $cursor->next()) {
+
             //$results[] = $result;
             $id1 = strval($result["item1"]["_id"]);
             $id2 = strval( $result["item2"]["_id"]);
-            $results[$id1][]  = $result["item2"];
-            $results[$id2][] = $result["item1"];
+
+
+                $results[$id1][]  = $result["item2"];
+                $results[$id2][] = $result["item1"];
+
+
+
 
         }
 
-        echo json_encode($results);
-        exit();
-        $relations = [];
-
-
-        foreach ($results as $k => $v)
-        {
-            if(in_array(new MongoId($k),$items))
-            {
-                foreach ($v as $clave =>$valor)
-                {
-                    $valor["parents"][]=;
-                    $relations[strval($valor["_id"])]=$valor;
-                }
-            }
-
-        }
-
-        return $relations;
+        return $results;
 
     }
 
@@ -155,6 +144,18 @@ class ActiveRecord
 
         $result = $collection->insert($data);
 
+        $this->processRelatedItems($data);
+
+        if (!empty($result["err"])) {
+            throw new CreateException($data);
+        }
+
+        return strval($data["_id"]);
+    }
+
+    function processRelatedItems($data)
+    {
+        $this->checkConnection();
         foreach ($data as $k => $v) {
 
             if (is_array($v)) {
@@ -164,8 +165,6 @@ class ActiveRecord
 
                     if(MongoId::isValid($clave) || MongoId::isValid($valor))
                     {
-
-
 
                         $name1=  $k[0];
                         $name2 = $k[1];
@@ -180,7 +179,7 @@ class ActiveRecord
                         if (!empty($valor["data"])) {
                             $this->insertRelation($item1, $item2,$valor["data"]);
                         } else {
-                                $this->insertRelation($item1,$item2);
+                            $this->insertRelation($item1,$item2);
                         }
 
 
@@ -193,14 +192,7 @@ class ActiveRecord
 
 
         }
-
-        if (!empty($result["err"])) {
-            throw new CreateException($data);
-        }
-
-        return strval($data["_id"]);
     }
-
     /**
      * Inserts a new type
      * @param $type Type to be inserted
@@ -348,6 +340,7 @@ class ActiveRecord
         while ($item = $cursor->next()) {
 
             $item["_id"] = strval($item["_id"]);
+
             if(!$child)
             {
 
@@ -356,13 +349,14 @@ class ActiveRecord
             }
             else
             {
-                $relatedItem = $alreadySearchedRelations[$item["_id"]];
 
-                foreach ($relatedItem["parents"] as $key => $value)
+                $parents = $alreadySearchedRelations[$item["_id"]];
+
+
+                foreach ($parents  as $key => $value)
                 {
-                    $result[strval($value)][$relatedItem["name"]][$item["_id"]] = $item;
+                    $result[$item["_id"]][$value["name"]][strval($value["_id"])] = $result[strval($value["_id"])];;
                 }
-
 
             }
 
@@ -380,19 +374,17 @@ class ActiveRecord
         {
 
             $relations = $this->findRelations($itemsIds);
-            echo json_encode($relations);
 
-            exit();
             foreach ($relations as $k => $v)
             {
 
-                $assocItemsIds[]=strval($k);
+                $assocItemsIds[]=new MongoId($k);
 
-                $alreadySearchedRelations[$k]=$v;
             }
+
+            $alreadySearchedRelations = array_merge($relations);
+
         }
-
-
 
         if(count($assocItemsIds) > 0)
         {
@@ -412,13 +404,25 @@ class ActiveRecord
 
         $collection = $this->mongodb->items;
 
+        $dataToProccess =(!empty($newData['$set']))?$newData['$set']:$newData;
+
         if (!empty($data['_id']) && MongoId::isValid($data['_id'])) {
             $data['_id'] = new MongoId($data['_id']);
+
+            $dataToProccess['_id'] = $data['_id'];
         }
 
         unset($newData["_id"]);
 
-        $newData["updated_at"] = time();
+        if(empty($newData['$set']))
+        {
+            $newData["updated_at"] = time();
+        }
+        else
+        {
+            $newData['$set']["updated_at"] = time();
+        }
+
 
         if (!empty($upsert) && is_array($upsert)) {
             $id = $this->insertBreadcrumb($upsert);
@@ -433,6 +437,9 @@ class ActiveRecord
         } else {
             $result = $collection->update($data, $newData);
         }
+
+        $this->processRelatedItems($dataToProccess);
+
 
         if (!empty($result["err"])) {
             throw new UpdateException($data);

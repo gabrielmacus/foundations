@@ -15,9 +15,10 @@ $conn->db ="php";
 $activeRecord = new ActiveRecord();
 $activeRecord->mongodb =$conn->connect();
 
-//$autorId = $activeRecord->insert(['Autor'],['name'=>'Bob','surname'=>'Dylan','age'=>100]);
+//$autorId = $activeRecord->insert(['Autor'],['name'=>'Robert','surname'=>'Johnson','age'=>33]);
+/*59dbd8f5145f8bd86c00003e
 
-
+59daa49a145f8bd86c00003c*/
 /*
 
 $activeRecord->update(["_id"=>$noticiaId],['$set':])
@@ -30,14 +31,11 @@ var_dump($activeRecord->find('Noticia'));
 //var_dump($activeRecord->find('Noticia'));
 
 
-
 /*
-
-
 $noticiaId = $activeRecord->insert(['Noticia','Policiales']
     ,
     [
-        'authors:news'=>[ "59d4d4fdcb0b66f807000029"=>['data'=>['disclaimer'=>'It`s a disclaimer']]],
+        'authors:news'=>[ "59dc189f145f8bd86c00004c"=>['data'=>['disclaimer'=>'It`s a disclaimer']],"59dc188e145f8bd86c00004b"],
         'title'=>'Policia salva gatito en un árbol',
         'text'=>'Lorewp wejorfdjopfdops dsfopj pofjdspo dfjsdfpo'
     ]);
@@ -60,5 +58,18 @@ var_dump($activeRecord->findBreadcrumbReverse('Policiales'));
 "created_at" : 1506806080,
 "disclaimer" : "It`s a disclaimer"
 }*/
+
+//$fileId= $activeRecord->insert(['Files'],['name'=>'photo.jpg','size'=>3423423]);
+//$photoId = $activeRecord->update(['_id'=>'59dc188e145f8bd86c00004b'],['$set'=>['name'=>'John','photos:authors'=>['59dc225a145f8bd86c000056'=>['data'=>['caption'=>'Foto re peola']]]]]);
+
+/*
+$asistencia = $activeRecord->insert(['Assistance'],['date'=>234234234]);
+
+$alumnos=[$activeRecord->insert(['Student'],['name'=>'Gabriel','surname'=>'Macus','age'=>21,'assistance:students'=>[$asistencia]]),$activeRecord->insert(['Student'],['name'=>'Rocio','surname'=>'Duré','age'=>22])];
+
+$activeRecord->insert(['Room'],['number'=>1,'room'=>10,'students:rooms'=>$alumnos]);
+*/
+
+
 
 echo json_encode($activeRecord->find());
