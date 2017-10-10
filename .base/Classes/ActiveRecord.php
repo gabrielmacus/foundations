@@ -6,6 +6,11 @@
  * Date: 25/09/2017
  * Time: 19:15
  */
+
+/**
+ * Class ActiveRecord
+ *
+ */
 class ActiveRecord
 {
     protected $mongodb;
@@ -114,6 +119,61 @@ class ActiveRecord
     }
 
     /**
+     * Deletes relationships of an item
+     * @param $id Id of the item to which the relationships will be deleted
+     * @param bool $relatedItemsIds Related items id
+     * @throws DatabaseNotConnected
+     * @throws PropertyNotDefined
+     */
+    function removeRelations($id,$relatedItemsIds  = false)
+    {
+
+        $this->checkConnection();
+
+        if(!MongoId::isValid($id))
+        {
+            throw new PropertyNotDefined("_id");
+        }
+
+        $id = new MongoId($id);
+
+
+
+            if(empty($relatedItemsIds) || count($relatedItemsIds) == 0)
+            {
+                $data =  [
+                    '$or' => array(
+                        array('item2._id'=>$id),
+                        array('item1._id'=>$id)
+                    )
+                ];
+            }
+            else
+            {
+                foreach ($relatedItemsIds as $k=>$v)
+                {
+
+                    $relatedItemsIds[$k] = new MongoId($v);
+                }
+                $data =  [
+                    '$or' => array(
+                        array("item1._id" => ['$in' => $relatedItemsIds],'item2._id'=>$id),
+                        array("item2._id" => ['$in' => $relatedItemsIds],'item1._id'=>$id)
+                    )
+                ];
+
+            }
+
+
+
+            $collection = $this->mongodb->relations;
+            $collection->remove($data);
+
+
+
+    }
+
+    /**
      * Inserts a new item
      * @param $breadcrumb Array with types/subtypes corresponding to the current item
      * @param $data Data of the item to be inserted
@@ -122,6 +182,27 @@ class ActiveRecord
      * @throws TypeNotDefined
      *
      */
+    function joinRelatedItems(&$arr,$parents,$item)
+    {
+        foreach ($arr as $k=>$v)
+        {
+            if(is_array($v))
+            {
+                foreach ($parents  as $key => $value)
+                {
+                    $id= strval($value["_id"]);
+                    if($k == $id)
+                    {
+                        $arr[$id][$value["name"]][strval($item["_id"])] = $item;
+                    }
+                }
+
+                $this->joinRelatedItems($v,$parents,$item);
+            }
+        }
+
+    }
+
     function insert($breadcrumb, $data)
     {
         if (empty($breadcrumb)) {
@@ -153,6 +234,13 @@ class ActiveRecord
         return strval($data["_id"]);
     }
 
+    /**
+     * Check if the given data has related items and stores the relationship
+     * @param $data Data to be checked
+     * @throws CreateException
+     * @throws DatabaseNotConnected
+     * @throws PropertyNotDefined
+     */
     function processRelatedItems($data)
     {
         $this->checkConnection();
@@ -316,6 +404,10 @@ class ActiveRecord
     }
 
 
+
+
+
+
     function find($data = array(), &$result = array(), $child=false,$process = false,&$alreadySearchedRelations = [])
     {
 
@@ -324,9 +416,25 @@ class ActiveRecord
         if (empty($data)) {
             $data = [];
         } else {
-            if (!empty($data["_id"]) && MongoId::isValid($data["_id"])) {
-                $data["_id"] = new MongoId($data["_id"]);
+            if (!empty($data["_id"]) ) {
+
+                if(MongoId::isValid($data["_id"]))
+                {
+                    $data["_id"] = new MongoId($data["_id"]);
+                }
+                elseif(!empty($data["_id"]['$in']))
+                {
+                    foreach ($data["_id"]['$in'] as $k => $v)
+                    {
+                        if(MongoId::isValid($v))
+                        {
+                            $data["_id"]['$in'][$k]  = new MongoId($v);
+                        }
+
+                    }
+                }
             }
+
         }
 
         $collection = $this->mongodb->items;
@@ -350,13 +458,14 @@ class ActiveRecord
             else
             {
 
+
+
                 $parents = $alreadySearchedRelations[$item["_id"]];
 
 
-                foreach ($parents  as $key => $value)
-                {
-                    $result[$item["_id"]][$value["name"]][strval($value["_id"])] = $result[strval($value["_id"])];;
-                }
+
+                $this->joinRelatedItems($result,$parents,$item);
+
 
             }
 
@@ -386,6 +495,8 @@ class ActiveRecord
 
         }
 
+        var_dump($alreadySearchedRelations);
+
         if(count($assocItemsIds) > 0)
         {
 
@@ -406,6 +517,8 @@ class ActiveRecord
 
         $dataToProccess =(!empty($newData['$set']))?$newData['$set']:$newData;
 
+        unset($dataToProccess['remove_related']);
+
         if (!empty($data['_id']) && MongoId::isValid($data['_id'])) {
             $data['_id'] = new MongoId($data['_id']);
 
@@ -414,13 +527,38 @@ class ActiveRecord
 
         unset($newData["_id"]);
 
-        if(empty($newData['$set']))
+        $relatedItemsToRemove=[];
+
+        if(!empty($newData['$set']))
         {
-            $newData["updated_at"] = time();
+
+            if(!empty($newData['$set']['remove_related']))
+            {
+                $relatedItemsToRemove = $newData['$set']['remove_related'];
+                unset($newData['$set']['remove_related']);
+            }
+
+            $newData['$set']["updated_at"] = time();
+
+
         }
         else
         {
-            $newData['$set']["updated_at"] = time();
+
+
+            if(!empty($newData['remove_related']))
+            {
+                $relatedItemsToRemove = $newData['remove_related'];
+                unset($newData['remove_related']);
+            }
+            $newData["updated_at"] = time();
+        }
+
+
+
+        if(count($relatedItemsToRemove) && !empty($data["_id"]))
+        {
+            $this->removeRelations($data["_id"],$relatedItemsToRemove);
         }
 
 
@@ -437,6 +575,7 @@ class ActiveRecord
         } else {
             $result = $collection->update($data, $newData);
         }
+
 
         $this->processRelatedItems($dataToProccess);
 
@@ -455,12 +594,15 @@ class ActiveRecord
         if (!MongoId::isValid($id)) {
             throw new PropertyNotDefined("_id");
         }
+        
 
         $data = array("_id" => new MongoId($id));
 
         $this->checkConnection();
 
         $collection = $this->mongodb->items;
+
+        $this->removeRelations($id);
 
         $result = $collection->remove($data, array("justOne" => true));
 

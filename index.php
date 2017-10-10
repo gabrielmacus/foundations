@@ -7,6 +7,9 @@
  */
 include (".base/autoload.php");
 
+
+$start = microtime(true);
+
 $conn = new Connection();
 $conn->host ="localhost";
 $conn->db ="php";
@@ -32,13 +35,7 @@ var_dump($activeRecord->find('Noticia'));
 
 
 /*
-$noticiaId = $activeRecord->insert(['Noticia','Policiales']
-    ,
-    [
-        'authors:news'=>[ "59dc189f145f8bd86c00004c"=>['data'=>['disclaimer'=>'It`s a disclaimer']],"59dc188e145f8bd86c00004b"],
-        'title'=>'Policia salva gatito en un árbol',
-        'text'=>'Lorewp wejorfdjopfdops dsfopj pofjdspo dfjsdfpo'
-    ]);
+
 */
 /*
 var_dump($activeRecord->findBreadcrumb('Noticia'));
@@ -60,7 +57,6 @@ var_dump($activeRecord->findBreadcrumbReverse('Policiales'));
 }*/
 
 //$fileId= $activeRecord->insert(['Files'],['name'=>'photo.jpg','size'=>3423423]);
-//$photoId = $activeRecord->update(['_id'=>'59dc188e145f8bd86c00004b'],['$set'=>['name'=>'John','photos:authors'=>['59dc225a145f8bd86c000056'=>['data'=>['caption'=>'Foto re peola']]]]]);
 
 /*
 $asistencia = $activeRecord->insert(['Assistance'],['date'=>234234234]);
@@ -70,6 +66,49 @@ $alumnos=[$activeRecord->insert(['Student'],['name'=>'Gabriel','surname'=>'Macus
 $activeRecord->insert(['Room'],['number'=>1,'room'=>10,'students:rooms'=>$alumnos]);
 */
 
+/*
+$activeRecord->update(['_id'=>'59db8b6acb0b66180e000039'],['remove_related'=>['59d4d4fdcb0b66f807000029']]);
+
+$activeRecord->update(['_id'=>'59db8b6acb0b66180e000039'],['$set'=>['authors:news'=>['59d4d4fdcb0b66f807000029'=>['data'=>['text'=>'Updating demo']]]]]);
+*/
+
+/*
+$noticiaId = $activeRecord->insert(['Noticia','Policiales']
+    ,
+    [
+        'news:authors'=>[ "59d4d4fdcb0b66f807000029","59db8ba8cb0b66180e00003b"],
+        'title'=>'North Korea strikes!!',
+        'text'=>'1000 101010 10 101 01 01 0'
+    ]);*/
 
 
-echo json_encode($activeRecord->find());
+/*
+ *   "name" : "Bob",
+    "surname" : "Dylan",
+    "age" : 100,
+    "type" : ObjectId("59d4d4fd8a214c116efbcc72"),
+    "created_at" : 1507560360*/
+
+/*
+$carId=  $activeRecord->insert(['Car'],['brand'=>'Toyota','model'=>'Corolla','year'=>2013]);
+
+$activeRecord->update(['_id'=>'59db8ba8cb0b66180e00003b'],['$set'=>['authors:cars'=>[$carId]]]);
+
+*/
+
+//$activeRecord->delete("59d4d4fdcb0b66f807000029");
+
+echo json_encode($activeRecord->find(['_id'=>'59dcd11bcb0b66bc02000036']));
+
+$end  = microtime(true);
+
+$time =$end-$start;
+$timeMs = round(($end-$start)*1000);
+$timeUs = round(($end - $start)*1000000);
+
+
+echo "<h2>{$time} s</h2>";
+
+echo "<h2>{$timeMs} ms</h2>";
+
+echo "<h2>{$timeUs} µs</h2>";
