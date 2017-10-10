@@ -98,13 +98,21 @@ $activeRecord->update(['_id'=>'59db8ba8cb0b66180e00003b'],['$set'=>['authors:car
 
 //$activeRecord->delete("59d4d4fdcb0b66f807000029");
 
-echo json_encode($activeRecord->find(['_id'=>'59dcd11bcb0b66bc02000036']));
-
+//echo json_encode($activeRecord->find(['_id'=>'59dcd11bcb0b66bc02000036']));
+echo json_encode($activeRecord->find(['_id'=>'59dcd0e3cb0b66bc02000033']));
 $end  = microtime(true);
 
 $time =$end-$start;
 $timeMs = round(($end-$start)*1000);
 $timeUs = round(($end - $start)*1000000);
+/*
+$wheelId=$activeRecord->insert(['Wheel'],['size'=>17.5,'brand'=>'Pirelli']);
+
+$activeRecord->update(['_id'=>'59dcebbbcb0b66bc02000048'],['$set'=>['cars:wheels'=>[$wheelId]]]);
+*/
+
+
+
 
 
 echo "<h2>{$time} s</h2>";

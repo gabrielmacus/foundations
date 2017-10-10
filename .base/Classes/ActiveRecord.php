@@ -106,8 +106,16 @@ class ActiveRecord
             $id2 = strval( $result["item2"]["_id"]);
 
 
-                $results[$id1][]  = $result["item2"];
+               if(!in_array($result["item1"]["_id"],$items))
+               {
+                   $results[$id1][]  = $result["item2"];
+               }
+
+            if(!in_array($result["item2"]["_id"],$items))
+            {
                 $results[$id2][] = $result["item1"];
+            }
+
 
 
 
@@ -186,18 +194,30 @@ class ActiveRecord
     {
         foreach ($arr as $k=>$v)
         {
+
+
             if(is_array($v))
             {
+
+
                 foreach ($parents  as $key => $value)
                 {
+
                     $id= strval($value["_id"]);
                     if($k == $id)
                     {
+
                         $arr[$id][$value["name"]][strval($item["_id"])] = $item;
+
+                        /*
+                        if(strval($item['_id']) == '59dcebbbcb0b66bc02000048')
+                        {
+                            var_dump($arr);
+                        }*/
                     }
                 }
 
-                $this->joinRelatedItems($v,$parents,$item);
+                $this->joinRelatedItems($arr[$k],$parents,$item);
             }
         }
 
@@ -406,8 +426,6 @@ class ActiveRecord
 
 
 
-
-
     function find($data = array(), &$result = array(), $child=false,$process = false,&$alreadySearchedRelations = [])
     {
 
@@ -416,19 +434,14 @@ class ActiveRecord
         if (empty($data)) {
             $data = [];
         } else {
-            if (!empty($data["_id"]) ) {
+            if (!empty($data["_id"])) {
 
-                if(MongoId::isValid($data["_id"]))
-                {
+                if (MongoId::isValid($data["_id"])) {
                     $data["_id"] = new MongoId($data["_id"]);
-                }
-                elseif(!empty($data["_id"]['$in']))
-                {
-                    foreach ($data["_id"]['$in'] as $k => $v)
-                    {
-                        if(MongoId::isValid($v))
-                        {
-                            $data["_id"]['$in'][$k]  = new MongoId($v);
+                } elseif (!empty($data["_id"]['$in'])) {
+                    foreach ($data["_id"]['$in'] as $k => $v) {
+                        if (MongoId::isValid($v)) {
+                            $data["_id"]['$in'][$k] = new MongoId($v);
                         }
 
                     }
@@ -449,53 +462,146 @@ class ActiveRecord
 
             $item["_id"] = strval($item["_id"]);
 
-            if(!$child)
-            {
+            if (empty($alreadySearchedRelations[$item["_id"]])) {
+                $itemsIds[] = new MongoId($item["_id"]);
+            }
+
+            if (!$child) {
 
                 $result[$item["_id"]] = $item;
 
+            } else {
+
+
+                $parents =$result['_relations'][$item["_id"]];
+
+
+                $this->joinRelatedItems($result, $parents, $item);
+
+                var_dump($result);
+
+               $alreadySearchedRelations = array_merge($alreadySearchedRelations,$result['_relations']);
+
+
             }
-            else
-            {
 
 
+
+
+        }
+
+
+        $assocItemsIds = [];
+        if (count($itemsIds) > 0) {
+
+            $relations = $this->findRelations($itemsIds);
+
+            foreach ($relations as $k => $v) {
+
+                $assocItemsIds[] = new MongoId($k);
+
+
+
+            }
+
+            $result['_relations'] = $relations;
+
+
+        }
+
+
+        if(count($assocItemsIds) > 0)
+        {
+
+            $this->find(['_id'=>['$in'=>$assocItemsIds]],$result,true,$process,$alreadySearchedRelations);
+
+        }
+
+
+        unset($result['_relations']);
+        //$relations = $this->findRelations($item["_id"]);
+        return $result;
+    }
+
+
+    function _find($data = array(), &$result = array(), $child=false,$process = false,&$alreadySearchedRelations = [])
+    {
+
+        $this->checkConnection();
+
+        if (empty($data)) {
+            $data = [];
+        } else {
+            if (!empty($data["_id"])) {
+
+                if (MongoId::isValid($data["_id"])) {
+                    $data["_id"] = new MongoId($data["_id"]);
+                } elseif (!empty($data["_id"]['$in'])) {
+                    foreach ($data["_id"]['$in'] as $k => $v) {
+                        if (MongoId::isValid($v)) {
+                            $data["_id"]['$in'][$k] = new MongoId($v);
+                        }
+
+                    }
+                }
+            }
+
+        }
+
+        $collection = $this->mongodb->items;
+
+        $cursor = $collection->find($data);
+
+
+        $itemsIds = [];
+
+
+        while ($item = $cursor->next()) {
+
+            $item["_id"] = strval($item["_id"]);
+
+            if (!$child) {
+
+                $result[$item["_id"]] = $item;
+
+            } else {
 
                 $parents = $alreadySearchedRelations[$item["_id"]];
 
+                var_dump($parents);
 
-
-                $this->joinRelatedItems($result,$parents,$item);
-
+                $this->joinRelatedItems($result, $parents, $item);
 
             }
 
-            if(empty($alreadySearchedRelations[$item["_id"]]))
-            {
-                $itemsIds[]= new MongoId($item["_id"]);
+
+            if (empty($alreadySearchedRelations[$item["_id"]])) {
+                $itemsIds[] = new MongoId($item["_id"]);
             }
 
 
         }
 
 
-        $assocItemsIds=[];
-        if(count($itemsIds) > 0)
-        {
+        $assocItemsIds = [];
+        if (count($itemsIds) > 0) {
 
+            var_dump($itemsIds);
             $relations = $this->findRelations($itemsIds);
 
-            foreach ($relations as $k => $v)
-            {
+            foreach ($relations as $k => $v) {
 
-                $assocItemsIds[]=new MongoId($k);
+                    $assocItemsIds[] = new MongoId($k);
+
+
 
             }
+
 
             $alreadySearchedRelations = array_merge($relations);
 
         }
 
-        var_dump($alreadySearchedRelations);
 
         if(count($assocItemsIds) > 0)
         {
