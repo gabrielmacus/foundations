@@ -187,9 +187,57 @@ class ActiveRecord
      *
      */
 
-    function joinRelatedItems(&$arr,$parents,$item,&$controls = array())
+    function joinRelatedItems(&$arr,$parents,$item)
     {
 
+
+        foreach ($arr as $k=>$v)
+        {
+
+
+            if(is_array($v) && $k != '_relations')
+            {
+
+
+                  foreach ($parents  as $key => $value)
+                  {
+
+                      if($k == strval($value["_id"]))
+                      {
+
+                          $id= strval($value["_id"]);
+
+                          $controls[$id] = $id;
+
+                          $arr[$k][$value["name"]][strval($item["_id"])] = $item;
+
+
+                              echo json_encode($arr);
+                              echo "<br><br>";
+
+
+
+                      }
+
+                  }
+
+
+
+
+                if(!strpos($k,':'))
+                {
+                    $this->joinRelatedItems($arr[$k],$parents,$item);
+                }
+
+            }
+        }
+
+    }
+
+    function _joinRelatedItems(&$arr,$parents,$item,&$controls = array())
+    {
+
+        var_dump(strval($item["_id"]));
         var_dump($parents);
 
         foreach ($arr as $k=>$v)
@@ -214,8 +262,9 @@ class ActiveRecord
                     }
 
 
-                        /*
-                        if(strval($item['_id']) == '59dcebbbcb0b66bc02000048')
+
+                    /*
+                        if(strval($item['_id']) == '59de0f50cb0b669816000031')
                         {
                             var_dump($arr);
                         }*/
@@ -225,50 +274,6 @@ class ActiveRecord
                 if(!strpos($k,':'))
                 {
                     $this->joinRelatedItems($arr[$k],$parents,$item,$controls);
-                }
-
-            }
-        }
-
-    }
-
-    function _joinRelatedItems(&$arr,$parents,$item)
-    {
-
-
-        foreach ($arr as $k=>$v)
-        {
-
-
-            if(is_array($v) && $k != '_relations')
-            {
-
-
-                foreach ($parents  as $key => $value)
-                {
-
-                    $id= strval($value["_id"]);
-
-                    if($k == $id)
-                    {
-                        $controls[$id] = $id;
-
-                        $arr[$id][$value["name"]][strval($item["_id"])] = $item;
-
-                    }
-
-
-                    /*
-                    if(strval($item['_id']) == '59dcebbbcb0b66bc02000048')
-                    {
-                        var_dump($arr);
-                    }*/
-
-                }
-
-                if(!strpos($k,':'))
-                {
-                    $this->joinRelatedItems($arr[$k],$parents,$item);
                 }
 
             }
@@ -526,12 +531,18 @@ class ActiveRecord
 
                 $this->joinRelatedItems($result, $parents, $item);
 
+
+
                $alreadySearchedRelations = array_merge($alreadySearchedRelations,$result['_relations']);
 
 
             }
 
         }
+
+        echo "<h1>--------------------</h1>";
+        echo json_encode($result);
+        echo "<h1>--------------------</h1>";
 
         $assocItemsIds = [];
         if (count($itemsIds) > 0) {
