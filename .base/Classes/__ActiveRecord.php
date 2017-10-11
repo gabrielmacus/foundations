@@ -6,6 +6,11 @@
  * Date: 25/09/2017
  * Time: 19:15
  */
+
+/**
+ * Class ActiveRecord
+ *
+ */
 class ActiveRecord
 {
     protected $mongodb;
@@ -68,6 +73,7 @@ class ActiveRecord
      */
     function findRelations($items)
     {
+
         $this->checkConnection();
 
         if (!is_array($items)) {
@@ -88,33 +94,86 @@ class ActiveRecord
             array("item2._id" => ['$in' => $items])
         ));
 
-
         $cursor = $collection->find($data);
 
         $results = [];
 
-        while ($result = $cursor->next()) {
+        while ($result = $cursor->next())
+        {
+
+            $a[]=$result;
             //$results[] = $result;
             $id1 = strval($result["item1"]["_id"]);
             $id2 = strval( $result["item2"]["_id"]);
-            $results[$id1]  = $id2;
-            $results[$id2]  = $id1;
 
-        }
-
-        $relations = [];
-
-        foreach ($results as $k => $v)
-        {
-            $v = strval($v);
-            if(!empty($results[$v]))
+            if(in_array($result["item2"]["_id"],$items))
             {
-                $relations[]  = new MongoId($results[$v]);
+
+                $results[$id1][]  = $result["item2"];
             }
+            else
+            {
+                $results[$id2][] = $result["item1"];
+            }
+
+
+        }
+        return $results;
+
+    }
+
+    /**
+     * Deletes relationships of an item
+     * @param $id Id of the item to which the relationships will be deleted
+     * @param bool $relatedItemsIds Related items id
+     * @throws DatabaseNotConnected
+     * @throws PropertyNotDefined
+     */
+    function removeRelations($id,$relatedItemsIds  = false)
+    {
+
+        $this->checkConnection();
+
+        if(!MongoId::isValid($id))
+        {
+            throw new PropertyNotDefined("_id");
         }
 
+        $id = new MongoId($id);
 
-        return $relations;
+
+
+            if(empty($relatedItemsIds) || count($relatedItemsIds) == 0)
+            {
+                $data =  [
+                    '$or' => array(
+                        array('item2._id'=>$id),
+                        array('item1._id'=>$id)
+                    )
+                ];
+            }
+            else
+            {
+                foreach ($relatedItemsIds as $k=>$v)
+                {
+
+                    $relatedItemsIds[$k] = new MongoId($v);
+                }
+                $data =  [
+                    '$or' => array(
+                        array("item1._id" => ['$in' => $relatedItemsIds],'item2._id'=>$id),
+                        array("item2._id" => ['$in' => $relatedItemsIds],'item1._id'=>$id)
+                    )
+                ];
+
+            }
+
+
+
+            $collection = $this->mongodb->relations;
+            $collection->remove($data);
+
+
 
     }
 
@@ -127,6 +186,110 @@ class ActiveRecord
      * @throws TypeNotDefined
      *
      */
+
+    function joinRelatedItems(&$arr,$parents,$item)
+    {
+
+
+
+        foreach ($arr as $k=>$v)
+        {
+
+
+            if(is_array($v) && $k != '_relations')
+            {
+
+
+                  foreach ($parents  as $key => $value)
+                  {
+
+                      if(strval($value["_id"]) == '59de0f4fcb0b66981600002f')
+                      {
+                       //   var_dump($value);
+                      }
+
+                      if($k == strval($value["_id"]))
+                      {
+
+                          if(empty($arr[$k][$value["name"]][strval($item["_id"])]))
+                          {
+                              $arr[$k][$value["name"]][strval($item["_id"])] = [];
+                          }
+
+                          $arr2 =  $arr[$k][$value["name"]][strval($item["_id"])] ;
+
+                          $arr[$k][$value["name"]][strval($item["_id"])] = array_merge( $arr2,$item);
+
+/*
+                              echo json_encode($arr);
+                              echo "<br><br>";*/
+
+
+
+                      }
+
+                  }
+
+
+
+
+                if(!strpos($k,':'))
+                {
+                    $this->joinRelatedItems($arr[$k],$parents,$item);
+                }
+
+            }
+        }
+
+    }
+
+    function _joinRelatedItems(&$arr,$parents,$item,&$controls = array())
+    {
+
+        var_dump(strval($item["_id"]));
+        var_dump($parents);
+
+        foreach ($arr as $k=>$v)
+        {
+
+            if(is_array($v) && $k != '_relations')
+            {
+
+
+                foreach ($parents  as $key => $value)
+                {
+
+
+                    $id= strval($value["_id"]);
+
+                    if($k == $id)
+                    {
+                        $controls[$id] = $id;
+
+                        $arr[$id][$value["name"]][strval($item["_id"])] = $item;
+
+                    }
+
+
+
+                    /*
+                        if(strval($item['_id']) == '59de0f50cb0b669816000031')
+                        {
+                            var_dump($arr);
+                        }*/
+
+                }
+
+                if(!strpos($k,':'))
+                {
+                    $this->joinRelatedItems($arr[$k],$parents,$item,$controls);
+                }
+
+            }
+        }
+
+    }
+
     function insert($breadcrumb, $data)
     {
         if (empty($breadcrumb)) {
@@ -149,29 +312,49 @@ class ActiveRecord
 
         $result = $collection->insert($data);
 
+        $this->processRelatedItems($data);
+
+        if (!empty($result["err"])) {
+            throw new CreateException($data);
+        }
+
+        return strval($data["_id"]);
+    }
+
+    /**
+     * Check if the given data has related items and stores the relationship
+     * @param $data Data to be checked
+     * @throws CreateException
+     * @throws DatabaseNotConnected
+     * @throws PropertyNotDefined
+     */
+    function processRelatedItems($data)
+    {
+        $this->checkConnection();
         foreach ($data as $k => $v) {
 
             if (is_array($v)) {
-                
+                $k = explode(":",$k);
                 foreach ($v as $clave => $valor) {
 
 
                     if(MongoId::isValid($clave) || MongoId::isValid($valor))
                     {
 
-                        $k = implode(":",$k);
-                        
+                        $name1=  $k[0];
+                        $name2 = $k[1];
+
                         $mongoId = (MongoId::isValid($clave))?$clave:$valor;
 
 
-                        $item1 = array("_id" => new MongoId($mongoId));
+                        $item1 = array("_id" => new MongoId($mongoId),"name"=>$name1);
 
-                        $item2 = array("_id" => $data["_id"]);
+                        $item2 = array("_id" => $data["_id"],"name"=>$name2);
 
                         if (!empty($valor["data"])) {
                             $this->insertRelation($item1, $item2,$valor["data"]);
                         } else {
-                                $this->insertRelation($item1,$item2);
+                            $this->insertRelation($item1,$item2);
                         }
 
 
@@ -184,14 +367,7 @@ class ActiveRecord
 
 
         }
-
-        if (!empty($result["err"])) {
-            throw new CreateException($data);
-        }
-
-        return strval($data["_id"]);
     }
-
     /**
      * Inserts a new type
      * @param $type Type to be inserted
@@ -317,70 +493,94 @@ class ActiveRecord
 
     function find($data = array(), &$result = array(), $child=false,$process = false,&$alreadySearchedRelations = [])
     {
-
         $this->checkConnection();
 
         if (empty($data)) {
             $data = [];
         } else {
-            if (!empty($data["_id"]) && MongoId::isValid($data["_id"])) {
-                $data["_id"] = new MongoId($data["_id"]);
+            if (!empty($data["_id"])) {
+
+                if (MongoId::isValid($data["_id"])) {
+                    $data["_id"] = new MongoId($data["_id"]);
+                } elseif (!empty($data["_id"]['$in'])) {
+                    foreach ($data["_id"]['$in'] as $k => $v) {
+                        if (MongoId::isValid($v)) {
+                            $data["_id"]['$in'][$k] = new MongoId($v);
+                        }
+
+                    }
+                }
             }
+
         }
 
         $collection = $this->mongodb->items;
 
         $cursor = $collection->find($data);
 
-
         $itemsIds = [];
+
 
 
         while ($item = $cursor->next()) {
 
             $item["_id"] = strval($item["_id"]);
-            if(!$child)
-            {
+
+            if (empty($alreadySearchedRelations[$item["_id"]])) {
+                $itemsIds[] = new MongoId($item["_id"]);
+            }
+
+            if (!$child) {
 
                 $result[$item["_id"]] = $item;
 
-            }
-            else
-            {
-                array_update($result,$item,$item["_id"]);
+            } else {
+
+                $parents =$result['_relations'][$item["_id"]];
+
+                    $this->joinRelatedItems($result, $parents, $item);
+
+
+               $alreadySearchedRelations = array_merge($alreadySearchedRelations,$result['_relations']);
+
 
             }
 
-            if(!in_array($item["_id"],$alreadySearchedRelations))
-            {
-                $itemsIds[]= new MongoId($item["_id"]);
+        }
+
+        $assocItemsIds = [];
+        if (count($itemsIds) > 0) {
+
+            $relations = $this->findRelations($itemsIds);
+
+            foreach ($relations as $k => $v) {
+
+                $assocItemsIds[] = new MongoId($k);
+
+
+
             }
+
+
+            $result['_relations'] = $relations;
 
 
         }
 
-
-
-        
-        $assocItemsIds=[];
-        if(count($itemsIds) > 0)
-        {
-
-            $assocItemsIds = $this->findRelations($itemsIds);
-        }
 
         if(count($assocItemsIds) > 0)
         {
-            $alreadySearchedRelations = array_merge($alreadySearchedRelations,$assocItemsIds);
 
             $this->find(['_id'=>['$in'=>$assocItemsIds]],$result,true,$process,$alreadySearchedRelations);
 
         }
 
+        unset($result['_relations']);
 
-        //$relations = $this->findRelations($item["_id"]);
         return $result;
     }
+
+
 
     function update($data, $newData, $upsert = false)
     {
@@ -388,13 +588,52 @@ class ActiveRecord
 
         $collection = $this->mongodb->items;
 
+        $dataToProccess =(!empty($newData['$set']))?$newData['$set']:$newData;
+
+        unset($dataToProccess['remove_related']);
+
         if (!empty($data['_id']) && MongoId::isValid($data['_id'])) {
             $data['_id'] = new MongoId($data['_id']);
+
+            $dataToProccess['_id'] = $data['_id'];
         }
 
         unset($newData["_id"]);
 
-        $newData["updated_at"] = time();
+        $relatedItemsToRemove=[];
+
+        if(!empty($newData['$set']))
+        {
+
+            if(!empty($newData['$set']['remove_related']))
+            {
+                $relatedItemsToRemove = $newData['$set']['remove_related'];
+                unset($newData['$set']['remove_related']);
+            }
+
+            $newData['$set']["updated_at"] = time();
+
+
+        }
+        else
+        {
+
+
+            if(!empty($newData['remove_related']))
+            {
+                $relatedItemsToRemove = $newData['remove_related'];
+                unset($newData['remove_related']);
+            }
+            $newData["updated_at"] = time();
+        }
+
+
+
+        if(count($relatedItemsToRemove) && !empty($data["_id"]))
+        {
+            $this->removeRelations($data["_id"],$relatedItemsToRemove);
+        }
+
 
         if (!empty($upsert) && is_array($upsert)) {
             $id = $this->insertBreadcrumb($upsert);
@@ -410,6 +649,10 @@ class ActiveRecord
             $result = $collection->update($data, $newData);
         }
 
+
+        $this->processRelatedItems($dataToProccess);
+
+
         if (!empty($result["err"])) {
             throw new UpdateException($data);
         }
@@ -424,12 +667,15 @@ class ActiveRecord
         if (!MongoId::isValid($id)) {
             throw new PropertyNotDefined("_id");
         }
+        
 
         $data = array("_id" => new MongoId($id));
 
         $this->checkConnection();
 
         $collection = $this->mongodb->items;
+
+        $this->removeRelations($id);
 
         $result = $collection->remove($data, array("justOne" => true));
 

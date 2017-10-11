@@ -108,10 +108,10 @@ $roomId = $activeRecord->insert(['Room'],['number'=>2,'rooms:students'=>[$alumno
 
 $schoolId = $activeRecord->insert(['School'],['schools:rooms'=>[$roomId],'name'=>'Nº 1 Del Centenario','address'=>'Alameda de la Federación']);
 */
-echo json_encode($activeRecord->find(['_id'=>'59de0f4fcb0b66981600002e']));
+echo json_encode($activeRecord->find());
 
 
-
+//['_id'=>'59de0f50cb0b669816000031'])
 $end  = microtime(true);
 
 $time =$end-$start;
