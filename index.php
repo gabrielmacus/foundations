@@ -99,7 +99,16 @@ $activeRecord->update(['_id'=>'59db8ba8cb0b66180e00003b'],['$set'=>['authors:car
 //$activeRecord->delete("59d4d4fdcb0b66f807000029");
 
 //echo json_encode($activeRecord->find(['_id'=>'59dcd11bcb0b66bc02000036']));
-echo json_encode($activeRecord->find(['_id'=>'59dcd0e3cb0b66bc02000033']));
+
+/*
+$alumnoId = $activeRecord->insert(['Student'],['name'=>'Gabriel','surname'=>'Macus','age'=>21,'dni'=>'39717030']);
+
+$roomId = $activeRecord->insert(['Room'],['number'=>2,'rooms:students'=>[$alumnoId=>['data'=>['demo'=>true]]]]);
+
+$schoolId = $activeRecord->insert(['School'],['schools:rooms'=>[$roomId],'name'=>'Nº 1 Del Centenario','address'=>'Alameda de la Federación']);
+*/
+echo json_encode($activeRecord->find(['_id'=>'59dd4994145f8bd86c000067']));
+
 $end  = microtime(true);
 
 $time =$end-$start;

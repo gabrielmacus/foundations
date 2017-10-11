@@ -94,34 +94,30 @@ class ActiveRecord
             array("item2._id" => ['$in' => $items])
         ));
 
-
         $cursor = $collection->find($data);
 
         $results = [];
 
-        while ($result = $cursor->next()) {
+        while ($result = $cursor->next())
+        {
 
+            $a[]=$result;
             //$results[] = $result;
             $id1 = strval($result["item1"]["_id"]);
             $id2 = strval( $result["item2"]["_id"]);
 
+            if(in_array($result["item2"]["_id"],$items))
+            {
 
-               if(!in_array($result["item1"]["_id"],$items))
-               {
-                   $results[$id1][]  = $result["item2"];
-               }
-
-            if(!in_array($result["item2"]["_id"],$items))
+                $results[$id1][]  = $result["item2"];
+            }
+            else
             {
                 $results[$id2][] = $result["item1"];
             }
 
 
-
-
-
         }
-
         return $results;
 
     }
@@ -190,13 +186,61 @@ class ActiveRecord
      * @throws TypeNotDefined
      *
      */
-    function joinRelatedItems(&$arr,$parents,$item)
+
+    function joinRelatedItems(&$arr,$parents,$item,&$controls = array())
     {
+
+        var_dump($parents);
+
+        foreach ($arr as $k=>$v)
+        {
+
+            if(is_array($v) && $k != '_relations')
+            {
+
+
+                foreach ($parents  as $key => $value)
+                {
+
+
+                    $id= strval($value["_id"]);
+
+                    if($k == $id)
+                    {
+                        $controls[$id] = $id;
+
+                        $arr[$id][$value["name"]][strval($item["_id"])] = $item;
+
+                    }
+
+
+                        /*
+                        if(strval($item['_id']) == '59dcebbbcb0b66bc02000048')
+                        {
+                            var_dump($arr);
+                        }*/
+
+                }
+
+                if(!strpos($k,':'))
+                {
+                    $this->joinRelatedItems($arr[$k],$parents,$item,$controls);
+                }
+
+            }
+        }
+
+    }
+
+    function _joinRelatedItems(&$arr,$parents,$item)
+    {
+
+
         foreach ($arr as $k=>$v)
         {
 
 
-            if(is_array($v))
+            if(is_array($v) && $k != '_relations')
             {
 
 
@@ -204,20 +248,29 @@ class ActiveRecord
                 {
 
                     $id= strval($value["_id"]);
+
                     if($k == $id)
                     {
+                        $controls[$id] = $id;
 
                         $arr[$id][$value["name"]][strval($item["_id"])] = $item;
 
-                        /*
-                        if(strval($item['_id']) == '59dcebbbcb0b66bc02000048')
-                        {
-                            var_dump($arr);
-                        }*/
                     }
+
+
+                    /*
+                    if(strval($item['_id']) == '59dcebbbcb0b66bc02000048')
+                    {
+                        var_dump($arr);
+                    }*/
+
                 }
 
-                $this->joinRelatedItems($arr[$k],$parents,$item);
+                if(!strpos($k,':'))
+                {
+                    $this->joinRelatedItems($arr[$k],$parents,$item);
+                }
+
             }
         }
 
@@ -428,7 +481,6 @@ class ActiveRecord
 
     function find($data = array(), &$result = array(), $child=false,$process = false,&$alreadySearchedRelations = [])
     {
-
         $this->checkConnection();
 
         if (empty($data)) {
@@ -454,9 +506,7 @@ class ActiveRecord
 
         $cursor = $collection->find($data);
 
-
         $itemsIds = [];
-
 
         while ($item = $cursor->next()) {
 
@@ -472,24 +522,16 @@ class ActiveRecord
 
             } else {
 
-
                 $parents =$result['_relations'][$item["_id"]];
 
-
                 $this->joinRelatedItems($result, $parents, $item);
-
-                var_dump($result);
 
                $alreadySearchedRelations = array_merge($alreadySearchedRelations,$result['_relations']);
 
 
             }
 
-
-
-
         }
-
 
         $assocItemsIds = [];
         if (count($itemsIds) > 0) {
@@ -510,6 +552,7 @@ class ActiveRecord
         }
 
 
+
         if(count($assocItemsIds) > 0)
         {
 
@@ -517,16 +560,13 @@ class ActiveRecord
 
         }
 
-
         unset($result['_relations']);
-        //$relations = $this->findRelations($item["_id"]);
+
         return $result;
     }
 
-
-    function _find($data = array(), &$result = array(), $child=false,$process = false,&$alreadySearchedRelations = [])
+    function __find($data = array(), &$result = array(), $child=false,$process = false,&$alreadySearchedRelations = [])
     {
-
         $this->checkConnection();
 
         if (empty($data)) {
@@ -552,13 +592,15 @@ class ActiveRecord
 
         $cursor = $collection->find($data);
 
-
         $itemsIds = [];
-
 
         while ($item = $cursor->next()) {
 
             $item["_id"] = strval($item["_id"]);
+
+            if (empty($alreadySearchedRelations[$item["_id"]])) {
+                $itemsIds[] = new MongoId($item["_id"]);
+            }
 
             if (!$child) {
 
@@ -566,41 +608,35 @@ class ActiveRecord
 
             } else {
 
-                $parents = $alreadySearchedRelations[$item["_id"]];
-
-                var_dump($parents);
+                $parents =$result['_relations'][$item["_id"]];
 
                 $this->joinRelatedItems($result, $parents, $item);
 
+                $alreadySearchedRelations = array_merge($alreadySearchedRelations,$result['_relations']);
+
+
             }
-
-
-            if (empty($alreadySearchedRelations[$item["_id"]])) {
-                $itemsIds[] = new MongoId($item["_id"]);
-            }
-
 
         }
-
 
         $assocItemsIds = [];
         if (count($itemsIds) > 0) {
 
-            var_dump($itemsIds);
             $relations = $this->findRelations($itemsIds);
 
             foreach ($relations as $k => $v) {
 
-                    $assocItemsIds[] = new MongoId($k);
+                $assocItemsIds[] = new MongoId($k);
 
 
 
             }
 
+            $result['_relations'] = $relations;
 
-            $alreadySearchedRelations = array_merge($relations);
 
         }
+
 
 
         if(count($assocItemsIds) > 0)
@@ -610,10 +646,12 @@ class ActiveRecord
 
         }
 
+        unset($result['_relations']);
 
-        //$relations = $this->findRelations($item["_id"]);
         return $result;
     }
+
+
 
     function update($data, $newData, $upsert = false)
     {
