@@ -211,9 +211,9 @@ class ActiveRecord
 
                           $arr[$k][$value["name"]][strval($item["_id"])] = $item;
 
-
+/*
                               echo json_encode($arr);
-                              echo "<br><br>";
+                              echo "<br><br>";*/
 
 
 
@@ -513,6 +513,8 @@ class ActiveRecord
 
         $itemsIds = [];
 
+
+
         while ($item = $cursor->next()) {
 
             $item["_id"] = strval($item["_id"]);
@@ -528,10 +530,20 @@ class ActiveRecord
             } else {
 
                 $parents =$result['_relations'][$item["_id"]];
+                if(!empty($result['59de0f4fcb0b66981600002e']['rooms']['59de0f4fcb0b66981600002f']['schools'])) {
 
-                $this->joinRelatedItems($result, $parents, $item);
+                    echo json_encode($result);
+                    $data = true;
+                }
 
+                    $this->joinRelatedItems($result, $parents, $item);
 
+                if(!empty($data))
+                {
+                    echo "<h1>*****************</h1>";
+                    echo json_encode($result);
+
+                }
 
                $alreadySearchedRelations = array_merge($alreadySearchedRelations,$result['_relations']);
 
@@ -540,9 +552,11 @@ class ActiveRecord
 
         }
 
+        /*
         echo "<h1>--------------------</h1>";
         echo json_encode($result);
-        echo "<h1>--------------------</h1>";
+
+        echo "<h1>--------------------</h1>";*/
 
         $assocItemsIds = [];
         if (count($itemsIds) > 0) {
@@ -557,12 +571,21 @@ class ActiveRecord
 
             }
 
+
             $result['_relations'] = $relations;
 
 
         }
 
+        /*
+        if(!empty($result['59de0f4fcb0b66981600002e']['rooms']['59de0f4fcb0b66981600002f']['schools']))
+        {
 
+            echo json_encode($result);
+
+            echo "<h2>Here</h2>";
+
+        }*/
 
         if(count($assocItemsIds) > 0)
         {
