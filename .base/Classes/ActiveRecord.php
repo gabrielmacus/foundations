@@ -491,25 +491,31 @@ class ActiveRecord
                         foreach ($valor as $key => $value)
                         {
 
+                            /*
+                            */
+                                /*
+                                var_dump($k);
+                                var_dump($key);
+                                                  var_dump("HERE");
+                                */
+
                             if(empty($alreadyProcessed[$k]) || !in_array($key,$alreadyProcessed[$k]))
                             {
+
                                 $alreadyProcessed[$k][]=$key;
 
-                                if(empty(  $arr[$k][$value["relation_name"]][$key] ))
+                                if(empty($arr[$k][$value["relation_name"]][$key] ))
                                 {
                                     $arr[$k][$value["relation_name"]][$key] =[];
                                 }
 
                                 $arr[$k][$value["relation_name"]][$key] = array_merge($value,$arr[$k][$value["relation_name"]][$key]);
                             }
-
                         }
 
                     }
                 }
 
-
-                var_dump($k);
                 $this->joinRelatedItems($arr[$k],$relations,2,$alreadyProcessed);
 
 
